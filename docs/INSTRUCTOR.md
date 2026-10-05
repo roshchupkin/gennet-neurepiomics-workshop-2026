@@ -16,8 +16,8 @@ After 60 minutes a participant should be able to:
 ## Before the session
 
 - [ ] Open [`docs/slides.html`](slides.html) full screen; have [`SLIDES.md`](SLIDES.md) as speaker notes.
-- [ ] Upload `notebooks/01_gennet_in_one_hour.ipynb` to your own Google Drive and **Run all** once on Colab CPU. Keep that tab as the projector backup.
-- [ ] Put the Colab link (or a Drive share) on a slide and in the chat.
+- [ ] Open https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb and **Run all** once on Colab CPU. Keep that tab as the projector backup.
+- [ ] Put that Colab link on a slide and in the chat (the README badge is the same URL).
 - [ ] Confirm the room can reach `colab.research.google.com`. If not, you present the completed notebook; they follow on paper.
 - [ ] Do not promise 1000 Genomes in this hour. Download + QC will eat the practical.
 
@@ -25,7 +25,7 @@ After 60 minutes a participant should be able to:
 
 ### 0:00–0:05 — landing
 
-“Open the notebook, Runtime → Change runtime type → CPU. Run the first two cells. You should see 1600 people and 192 SNPs.”
+“Open the Colab link (README badge or the URL on the slide). Runtime → Change runtime type → CPU. Run the first two cells. You should see 1600 people and 192 SNPs.”
 
 If Colab is compiling TensorFlow slowly, start the talk anyway.
 

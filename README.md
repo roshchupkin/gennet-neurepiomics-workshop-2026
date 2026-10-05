@@ -1,5 +1,9 @@
 # GenNet in one hour — Neurepiomics 2026
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb)
+
+**Open the practical:** [Launch in Google Colab](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb)
+
 Hands-on module for **Neurepiomics 2026** (San Antonio, 5–7 October), inside Wednesday’s
 optional session:
 
@@ -29,7 +33,7 @@ and `python GenNet.py --help` are the path to real data.
 
 | Min | Block | What happens |
 |-----|--------|----------------|
-| 0–5 | Open Colab | Runtime → CPU. Run the first two cells. |
+| 0–5 | Open Colab | Click the README badge. Runtime → CPU. Run the first two cells. |
 | 5–20 | Talk | Why biology-informed nets, topology files, L1, interpretation vs PRS. |
 | 20–50 | Practical | Simulate → inspect topology → train → AUC vs lasso → gene ranks → NID. |
 | 50–60 | Wrap | How this maps to CHARGE-scale GenNet, caveats, Q&A. |
@@ -41,8 +45,9 @@ Cheat sheet: [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)
 
 ## Practical (Colab)
 
-Open [`notebooks/01_gennet_in_one_hour.ipynb`](notebooks/01_gennet_in_one_hour.ipynb)
-in Google Colab (File → Upload notebook if this repo is not yet on GitHub).
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb)
+
+That badge opens [`notebooks/01_gennet_in_one_hour.ipynb`](notebooks/01_gennet_in_one_hour.ipynb) in Colab from `main`. Participants do not upload a file.
 
 You do **not** need a GPU. The simulated cohort is 1,600 people × 192 SNPs.
 Training is tens of seconds on CPU.

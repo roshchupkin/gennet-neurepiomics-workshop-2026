@@ -2,6 +2,8 @@
 
 ## This hour (Colab notebook)
 
+[Open in Colab](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb)
+
 Stock Colab CPU. No `pip` of GenNet.
 
 | Step | What to look at |

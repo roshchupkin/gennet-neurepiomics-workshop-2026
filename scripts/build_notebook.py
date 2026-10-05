@@ -7,15 +7,19 @@ import json
 from pathlib import Path
 
 NB_PATH = Path(__file__).resolve().parents[1] / "notebooks" / "01_gennet_in_one_hour.ipynb"
+COLAB_URL = (
+    "https://colab.research.google.com/github/roshchupkin/"
+    "gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb"
+)
 
 CELLS = []
 
 
-def md(source: str) -> None:
+def md(source: str, metadata: dict | None = None) -> None:
     CELLS.append(
         {
             "cell_type": "markdown",
-            "metadata": {},
+            "metadata": metadata or {},
             "source": [line + "\n" for line in source.strip("\n").split("\n")],
         }
     )
@@ -32,6 +36,12 @@ def code(source: str) -> None:
         }
     )
 
+
+md(
+    f'<a href="{COLAB_URL}" target="_parent">'
+    '<img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>',
+    metadata={"id": "view-in-github", "colab_type": "text"},
+)
 
 md(
     """# GenNet in one hour
@@ -487,7 +497,11 @@ nb = {
     "metadata": {
         "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": {"name": "python", "pygments_lexer": "ipython3"},
-        "colab": {"provenance": [], "toc_visible": True},
+        "colab": {
+            "name": "GenNet in one hour — Neurepiomics 2026",
+            "provenance": [],
+            "toc_visible": True,
+        },
     },
     "cells": CELLS,
 }

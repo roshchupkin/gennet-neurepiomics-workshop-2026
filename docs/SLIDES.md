@@ -68,8 +68,9 @@ GenNet should **win** when the signal really does sit in annotated genes/pathway
 ---
 
 **8. Practical (Colab, CPU)**  
+Open: https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb  
 You will: simulate → look at topology → train ~40 seconds → AUC vs lasso → rank genes → rank SNP pairs.  
-Open the notebook. Runtime = CPU. Run all.
+Runtime = CPU. Run all.
 
 ---
 
