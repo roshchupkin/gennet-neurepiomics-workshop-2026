@@ -34,13 +34,13 @@ and `python GenNet.py --help` are the path to real data.
 | Min | Block | What happens |
 |-----|--------|----------------|
 | 0–5 | Open Colab | Click the README badge. Runtime → CPU. Run the first two cells. |
-| 5–20 | Talk | Why biology-informed nets, topology files, L1, interpretation vs PRS. |
+| 5–23 | Talk | Paper figures, interpretation, NID, ALIEN, then the toy. |
 | 20–50 | Practical | Simulate → inspect topology → train → AUC vs lasso → gene ranks → NID. |
 | 50–60 | Wrap | How this maps to CHARGE-scale GenNet, caveats, Q&A. |
 
 Instructor notes: [`docs/INSTRUCTOR.md`](docs/INSTRUCTOR.md)  
 Slide script: [`docs/SLIDES.md`](docs/SLIDES.md)  
-Presenter deck: [`docs/slides.html`](docs/slides.html) (open in a browser)  
+Presenter deck: [`docs/slides.html`](docs/slides.html) (open in a browser; paper figures, offline)  
 Cheat sheet: [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)  
 Vs original A-to-Z Colab: [`docs/VS_A_TO_Z.md`](docs/VS_A_TO_Z.md)
 

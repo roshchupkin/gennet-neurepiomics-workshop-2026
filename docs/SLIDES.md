@@ -1,86 +1,85 @@
-# Slide script (≈15 minutes)
+# Slide script (≈18 minutes)
 
-Use with [`slides.html`](slides.html). One idea per slide. Timing assumes ~90 seconds of speech after slide 1.
+Open [`slides.html`](slides.html) full screen. Arrow keys or click. Figures are stored under [`figures/`](figures/) so the deck works offline.
 
----
-
-**1. Title**  
-GenNet: biologically structured neural nets for genetic prediction  
-Neurepiomics 2026 · 1 hour, including Colab  
-Gennady Roshchupkin · Erasmus MC
-
-*Say:* This hour is not “train a foundation model.” It is: what is the architecture, how do you configure it, and what can you read off a tiny trained net.
+Figures from van Hilten et al., *Communications Biology* 2021, **CC BY 4.0**.
 
 ---
 
-**2. Two jobs in neurogenetics**  
-- **Rank people** — polygenic scores, PRS-CS, LDpred.  
-- **Name biology** — which genes/pathways the predictor actually used.
-
-*Say:* CHARGE already does the first job well. GenNet is aimed at the second. If you only need a risk score, you probably want a PRS.
+**1. Title — From genotype to named biology**  
+*Say:* Not a foundation-model hour. Architecture, configuration, then what you can read: genes, pathways, and SNP–SNP interaction. Paper is van Hilten et al. 2021.
 
 ---
 
-**3. The idea**  
-You draw the wires. The net may only use those wires.
-
-SNP → gene → pathway → phenotype  
-Example: APOE SNPs may talk to the APOE gene node, not to COL4A1.
-
-*Say:* A dense net could connect every SNP to everything. Here the mask is Annovar, KEGG, GTEx, or a table you wrote. That is a scientific choice, not a hyperparameter hiding in a YAML file.
+**2. Two jobs**  
+CHARGE already ranks people (PRS, GWAS). This hour is naming annotated biology, including interactions a linear score misses.
 
 ---
 
-**4. Three files (the whole configuration)**
-
-| File | Role |
-|------|------|
-| `genotype.h5` | people × SNPs (0/1/2) |
-| `subjects.csv` | id, label, row, train/val/test |
-| `topology.csv` | every allowed path, SNP to output |
-
-*Say:* If you can write `topology.csv`, you can run GenNet. The CLI is `convert`, `topology`, `train`, `plot`, `interpret`.
+**3. Fig. 1 — You draw the wires**  
+Linger here. SNPs may only talk to their gene. That mask is Annovar, KEGG, GTEx, or a CSV you wrote. Scientific choice, not a YAML hyperparameter.
 
 ---
 
-**5. What training does**  
-L1 sparsity: most edges shrink toward zero. The remaining weights are readable.  
-We will not wait for UK Biobank. Simulated 1,600 people, 192 SNPs, a planted “high WMH” label.
+**4. Fig. 2a — Planted causes go red**  
+This is the whole teaching trick. Causal SNPs get thick weights. Today’s Colab is the same experiment with an APOE-like gene.
 
 ---
 
-**6. What you read afterwards**  
-- **Weights along a path** → gene / pathway importance (Manhattan, sunburst in the real tool).  
-- **NID** → SNP pairs with strong joint weights (epistasis candidates).  
-- **DFIM / PathExplain** → perturbation / Hessian interactions (too slow for this hour).
-
-*Say:* These are hypotheses. Replication and wet lab still exist.
+**5. What the paper showed**  
+Eye colour: *HERC2* / *OCA2* (sanity check). Schizophrenia exome: AUC 0.74 vs lasso 0.65. Modest, real, not “deep learning beat GWAS.” Exome only.
 
 ---
 
-**7. Honest limits**  
-- Annotation-only SNPs miss a lot of regulatory signal.  
-- Hierarchical pooling can wash out infinitesimal genome-wide effects.  
-- No LD clumping inside the net.  
-- On a typical polygenic trait, a modern PRS will usually predict better.  
-GenNet should **win** when the signal really does sit in annotated genes/pathways — which is the story we planted in the practical.
+**6. Fig. 2d — Manhattan of weights**  
+Same picture they already know. Quantity is path-weight, not a p-value. Schizophrenia is polygenic; many genes light up.
 
 ---
 
-**8. Practical (Colab, CPU)**  
-Open: https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb  
-You will: simulate → look at topology → train ~40 seconds → AUC vs lasso → rank genes → rank SNP pairs.  
-Runtime = CPU. Run all.
+**7. Fig. 3 — Sunburst**  
+Read from the centre. Viral infectious-disease pathways were the large slice. Hypothesis, not a diagnosis.
 
 ---
 
-**9. After today**  
-Paper, GitHub, A-to-Z Colab, ALIEN map.  
-`python GenNet.py interpret --help`
+**8. Interpretation stack**  
+Weights → NID → DFIM/PathExplain. A-to-Z Colab stops at Manhattan. We added the interaction row.
 
 ---
 
-**10. Backup / Q&A**  
-“Can I use imaging + genetics?” Covariates exist in the CLI.  
-“Multi-omics?” That’s the ALIEN direction, not this notebook.  
-“Is APOE going to come out on top?” Yes — because we planted it. On real WMH data, nobody promises that in 40 seconds.
+**9. Why interaction**  
+Linear PRS adds. Biology often multiplies. Two SNPs in one gene can matter together.
+
+---
+
+**10. NID formula**  
+`min(|wi|, |wj|) × |w_later|`. DFIM: knock out A, watch B. Cluster, not this room.
+
+---
+
+**11. ALIEN**  
+GenNet is the released code. ALIEN is the map: data/knowledge → train → investigate, plus regulatory/brain context. Not a second install.
+
+---
+
+**12. Three files**  
+`genotype.h5`, `subjects.csv`, `topology.csv`. Then train / plot / interpret.
+
+---
+
+**13. Honest limits**  
+Loses to modern PRS on highly polygenic, non-coding traits. Wins when signal is in annotated genes, or when the question is interaction.
+
+---
+
+**14. Planted toy**  
+APOE, COL4A1, APOE_s0×APOE_s1. Do not quote as WMH biology.
+
+---
+
+**15. Colab**  
+Save a copy. CPU. Run all. URL on the button.
+
+---
+
+**16. After today**  
+Paper, GitHub, A-to-Z for convert, this hour for interaction, alien site.

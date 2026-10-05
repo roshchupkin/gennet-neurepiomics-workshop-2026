@@ -29,9 +29,9 @@ After 60 minutes a participant should be able to:
 
 If Colab is compiling TensorFlow slowly, start the talk anyway.
 
-### 0:05–0:20 — talk (slides 1–8)
+### 0:05–0:23 — talk (slides 1–16)
 
-Stay at the idea level. The topology table is the one slide to linger on.
+Paper figures first (architecture, planted simulation, schizophrenia Manhattan, KEGG sunburst), then the interpretation stack and **NID**, then ALIEN, then the Colab. Speaker notes: [`SLIDES.md`](SLIDES.md). Figures: [`FIGURES.md`](FIGURES.md).
 
 **Do say:** PRS is the right tool if the job is *rank people by risk*. GenNet is the right tool if the job is *which annotated genes/pathways the net used*.
 
