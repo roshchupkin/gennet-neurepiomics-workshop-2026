@@ -56,7 +56,9 @@ This notebook is a **Colab-CPU** walk through the GenNet idea:
 
 It is **not** a GWAS, not UK Biobank, and not the full GenNet CLI. Gene names (APOE, COL4A1, …) are a story scaffold. Allele frequencies and effects are invented so the hour can finish.
 
-**Runtime:** `Runtime → Change runtime type → CPU` (GPU not needed). Then `Runtime → Run all`.
+**To start:** `File → Save a copy in Drive`, then `Runtime → Change runtime type → CPU`, then `Runtime → Run all`. GPU is not needed.
+
+This hour is **not** the full [A-to-Z GenNet Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb). That notebook installs the real CLI, converts PLINK, builds an Annovar gene topology, trains, and draws a Manhattan plot. Here we keep the same scientific objects (topology, weight-path importance, Manhattan) on a tiny simulated WMH-like trait, and we add a lasso comparison plus NID interactions — pieces the A-to-Z Colab does not run.
 
 Links: [GenNet paper](https://www.nature.com/articles/s42003-021-02622-z) · [GitHub](https://github.com/ArnovanHilten/GenNet) · [ALIEN](https://www.roshchupkin.org/alien/) · [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
 """
@@ -405,6 +407,44 @@ display(pd.DataFrame(pw_rows).sort_values("importance", ascending=False))"""
 )
 
 md(
+    """### Manhattan of SNP relative importance (from the A-to-Z Colab)
+
+The original tutorial ends with `python GenNet.py plot -type manhattan_relative_importance`. That plot is the product of weights along each SNP’s allowed path, scaled to 1. CHARGE rooms already read Manhattan plots — this is that picture, from the net instead of from a GWAS p-value.
+"""
+)
+
+code(
+    """chr_by_snp = bundle["topology"].drop_duplicates("layer0_node").set_index("layer0_node")["chr"]
+snp_rows = []
+for s, name in enumerate(bundle["snp_names"]):
+    g = int(bundle["snp_to_gene"][s])
+    p = int(bundle["gene_to_pathway"][g])
+    raw = float(abs(w_sg[s, g]) * abs(w_gp[g, p]) * abs(w_out[p]))
+    snp_rows.append({
+        "snp": name, "gene": bundle["gene_names"][g], "chr": int(chr_by_snp.loc[s]),
+        "pos": s, "raw_importance": raw,
+    })
+snp_imp = pd.DataFrame(snp_rows)
+snp_imp["relative_importance"] = snp_imp["raw_importance"] / snp_imp["raw_importance"].max()
+display(snp_imp.sort_values("raw_importance", ascending=False).head(8))
+
+fig, ax = plt.subplots(figsize=(9, 3.6))
+colors = ["#7dcfe2", "#4b78b5", "darkgrey", "dimgray"]
+for i, chrom in enumerate(sorted(snp_imp["chr"].unique())):
+    sub = snp_imp[snp_imp["chr"] == chrom]
+    ax.scatter(sub["pos"], sub["relative_importance"], s=18, c=colors[i % 4], label=f"chr {chrom}" if chrom in (19, 13) else None)
+ax.set_xlabel("SNP index (grouped by gene / chromosome)")
+ax.set_ylabel("Relative importance")
+ax.set_title("Relative importance of all SNPs")
+ax.set_ylim(0, 1.25)
+top = snp_imp.sort_values("raw_importance", ascending=False).head(6)
+for _, r in top.iterrows():
+    ax.annotate(r["snp"], (r["pos"], r["relative_importance"]), fontsize=8, xytext=(4, 4), textcoords="offset points")
+ax.legend(loc="upper right", frameon=False)
+plt.show()"""
+)
+
+md(
     """## 7. Interaction: a readable NID
 
 [NID](https://arxiv.org/abs/1705.04977) (Tsang et al.) looks for features that share a hidden unit with large incoming weights. GenNet applies that inside each gene:
@@ -466,13 +506,24 @@ print("Planted interaction rank in NID table:", pair_rank)"""
 )
 
 md(
-    """## 9. How this maps to the real GenNet CLI
+    """## 9. How this maps to the real GenNet CLI (the A-to-Z Colab)
 
-After today, on a cluster or the [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb):
+The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb) is the **software tutorial**. It clones GenNet, `pip install`s the pinned TensorFlow 2.11 stack, converts example PLINK, builds a **SNP → gene** topology from precomputed Annovar output, trains with `python GenNet.py train`, and plots Manhattan relative importance.
+
+This hour skipped convert/Annovar (too slow and too brittle on current Colab) and added three things A-to-Z does not run: a **pathway** layer, a **lasso** baseline, and **NID** interactions.
+
+Bundled examples in the real repo, if you continue after today:
+
+| Example | What it is |
+|---------|------------|
+| `examples/example_classification/` | Toy SNP→gene classification (`HERC2`, `BRCA2`, `ApoE`, …) |
+| `examples/example_regression/` | Same idea with a pathway layer |
+| `examples/A_to_Z/` | PLINK → hdf5 → Annovar gene topology → Manhattan |
 
 ```bash
 python GenNet.py convert  -g ./plink/ -study_name mystudy -o ./processed_data/
-python GenNet.py topology -type create_gene_network -path ./processed_data/ -study_name mystudy
+python GenNet.py topology -type create_annovar_input -path ./processed_data/ -study_name mystudy
+python GenNet.py topology -type create_gene_network  -path ./processed_data/ -study_name mystudy
 python GenNet.py train    -path ./run/ -ID 17 -L1 0.01 -epochs 100
 python GenNet.py plot     -ID 17 -type manhattan_relative_importance
 python GenNet.py interpret -type get_weight_scores -resultpath results/GenNet_experiment_17_/

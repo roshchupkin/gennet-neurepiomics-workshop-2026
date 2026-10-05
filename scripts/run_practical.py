@@ -13,7 +13,7 @@ import tensorflow as tf
 
 tf.config.set_visible_devices([], "GPU")
 
-from gennet_workshop.interpret import evaluate_auc, gene_importance, nid_pairwise, planted_recovery
+from gennet_workshop.interpret import evaluate_auc, gene_importance, nid_pairwise, planted_recovery, snp_importance
 from gennet_workshop.model import build_gennet, train_gennet
 from gennet_workshop.simulate import simulate_cohort
 
@@ -30,12 +30,19 @@ def main() -> int:
     aucs = evaluate_auc(model, cohort)
     genes = gene_importance(model, cohort)
     nid = nid_pairwise(model, cohort)
-    rec = planted_recovery(genes, nid, cohort)
+    snps = snp_importance(model, cohort)
+    rec = planted_recovery(genes, nid, cohort, snps)
     print("AUC", {k: round(v, 3) for k, v in aucs.items()})
     print(genes.head(8).to_string(index=False))
+    print(snps.head(8).to_string(index=False))
     print(nid.head(8).to_string(index=False))
     print("recovery", rec)
-    ok = rec["apoe_in_top5"] and rec["interaction_rank"] is not None and rec["interaction_rank"] <= 15
+    ok = (
+        rec["apoe_in_top5"]
+        and rec["interaction_rank"] is not None
+        and rec["interaction_rank"] <= 15
+        and rec.get("planted_snp_in_top5", True)
+    )
     return 0 if ok and aucs["test"] >= 0.70 else 1
 
 

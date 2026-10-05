@@ -41,7 +41,8 @@ and `python GenNet.py --help` are the path to real data.
 Instructor notes: [`docs/INSTRUCTOR.md`](docs/INSTRUCTOR.md)  
 Slide script: [`docs/SLIDES.md`](docs/SLIDES.md)  
 Presenter deck: [`docs/slides.html`](docs/slides.html) (open in a browser)  
-Cheat sheet: [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)
+Cheat sheet: [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)  
+Vs original A-to-Z Colab: [`docs/VS_A_TO_Z.md`](docs/VS_A_TO_Z.md)
 
 ## Practical (Colab)
 

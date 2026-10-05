@@ -7,6 +7,7 @@ from .interpret import (
     nid_pairwise,
     pathway_importance,
     planted_recovery,
+    snp_importance,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "nid_pairwise",
     "pathway_importance",
     "planted_recovery",
+    "snp_importance",
 ]

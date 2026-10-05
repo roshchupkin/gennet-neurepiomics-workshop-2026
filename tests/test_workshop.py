@@ -41,6 +41,7 @@ def test_model_recovers_planted_signal():
         gene_importance,
         nid_pairwise,
         planted_recovery,
+        snp_importance,
     )
     from gennet_workshop.model import build_gennet, train_gennet  # noqa: WPS433
 
@@ -49,10 +50,12 @@ def test_model_recovers_planted_signal():
     train_gennet(model, cohort, epochs=35, verbose=0)
     aucs = evaluate_auc(model, cohort)
     assert aucs["test"] >= 0.70
+    snp_imp = snp_importance(model, cohort)
     recovery = planted_recovery(
-        gene_importance(model, cohort), nid_pairwise(model, cohort), cohort
+        gene_importance(model, cohort), nid_pairwise(model, cohort), cohort, snp_imp
     )
     assert recovery["apoe_in_top5"], recovery
     assert recovery["interaction_rank"] is not None
     assert recovery["interaction_rank"] <= 15, recovery
+    assert recovery["planted_snp_in_top5"], recovery
     assert CAUSAL_GENE in recovery["top_genes"]

@@ -10,7 +10,7 @@ After 60 minutes a participant should be able to:
 
 1. Explain that GenNet is a neural net whose **edges are chosen by biology**, not learned as a fully connected layer.
 2. Name the three files the CLI needs: `genotype.h5`, `subjects.csv`, `topology.csv`.
-3. Train a tiny model in Colab and read a **gene ranking** and a **pairwise interaction** table.
+3. Train a tiny model in Colab and read a **gene ranking**, a **Manhattan of SNP weights**, and a **pairwise interaction** table.
 4. Say out loud that this does **not** beat a PRS on a highly polygenic trait, and that 1 hour cannot train UK Biobank.
 
 ## Before the session
@@ -46,7 +46,7 @@ Walk the room through these checkpoints. If someone is stuck, they can skip to t
 | A | Simulate / topology | `APOE` maps to `lipid_endocytosis` |
 | B | Train | val AUC clearly above 0.5 (expect ~0.75–0.90) |
 | C | Lasso vs GenNet | both decent; lasso hits APOE SNPs, GenNet names the gene |
-| D | Gene importance | APOE in the top 5 |
+| D | Gene importance + Manhattan | APOE in the top 5; APOE SNPs spike on the Manhattan |
 | E | NID | `APOE_s0`–`APOE_s1` high in the table |
 
 **Planted answers** (reveal after D, not before):

@@ -29,6 +29,39 @@ def directed_weights(model) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     return w_sg, w_gp, w_out
 
 
+def snp_importance(model, cohort: SimulatedCohort) -> pd.DataFrame:
+    """Weight-path importance of each SNP: |w_SNP→gene| × |w_gene→pw| × |w_pw→out|.
+
+    Same quantity as `python GenNet.py plot -type manhattan_relative_importance`
+    in the A-to-Z Colab (`connection_weights.csv` → relative |raw_importance|).
+    """
+    w_sg, w_gp, w_out = directed_weights(model)
+    chr_by_snp = (
+        cohort.topology.sort_values("layer0_node")
+        .drop_duplicates("layer0_node")
+        .set_index("layer0_node")["chr"]
+    )
+    rows = []
+    for s, name in enumerate(cohort.snp_names):
+        g = int(cohort.snp_to_gene[s])
+        p = int(cohort.gene_to_pathway[g])
+        raw = float(abs(w_sg[s, g]) * abs(w_gp[g, p]) * abs(w_out[p]))
+        rows.append(
+            {
+                "snp": name,
+                "gene": cohort.gene_names[g],
+                "pathway": cohort.pathway_names[p],
+                "chr": int(chr_by_snp.loc[s]),
+                "node_layer_0": s,
+                "raw_importance": raw,
+            }
+        )
+    df = pd.DataFrame(rows)
+    mx = float(df["raw_importance"].max()) or 1.0
+    df["relative_importance"] = df["raw_importance"] / mx
+    return df.sort_values("raw_importance", ascending=False).reset_index(drop=True)
+
+
 def gene_importance(model, cohort: SimulatedCohort) -> pd.DataFrame:
     """Product of mean |SNP→gene| weight, |gene→pathway|, and |pathway→out|."""
     w_sg, w_gp, w_out = directed_weights(model)
@@ -147,16 +180,24 @@ def evaluate_auc(model, cohort: SimulatedCohort) -> Dict[str, float]:
 
 
 def planted_recovery(
-    gene_imp: pd.DataFrame, nid: pd.DataFrame, cohort: SimulatedCohort
+    gene_imp: pd.DataFrame,
+    nid: pd.DataFrame,
+    cohort: SimulatedCohort,
+    snp_imp: pd.DataFrame | None = None,
 ) -> Dict[str, object]:
     """Sanity checks for the instructor / automated test."""
     top_genes: List[str] = gene_imp["gene"].head(5).tolist()
     pair = set(cohort.planted["interaction_snps"])
     nid_pairs = [set([a, b]) for a, b in zip(nid["snp_i"], nid["snp_j"])]
     pair_rank = next((i + 1 for i, p in enumerate(nid_pairs) if p == pair), None)
-    return {
+    out: Dict[str, object] = {
         "apoe_in_top5": CAUSAL_GENE in top_genes,
         "col4a1_in_top8": VASCULAR_GENE in gene_imp["gene"].head(8).tolist(),
         "interaction_rank": pair_rank,
         "top_genes": top_genes,
     }
+    if snp_imp is not None:
+        top_snps = snp_imp["snp"].head(5).tolist()
+        out["planted_snp_in_top5"] = any(s in top_snps for s in cohort.planted["interaction_snps"])
+        out["top_snps"] = top_snps
+    return out
