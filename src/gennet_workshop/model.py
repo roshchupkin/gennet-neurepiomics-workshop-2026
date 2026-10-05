@@ -43,7 +43,7 @@ class DirectedLayer(tf.keras.layers.Layer):
             raise ValueError(
                 f"Last dim {input_shape[-1]} does not match mask rows {n_in}"
             )
-        self.mask = tf.constant(self.mask_np, dtype=self.dtype)
+        self.mask = tf.constant(self.mask_np, dtype=tf.float32)
         self.kernel = self.add_weight(
             name="kernel",
             shape=(n_in, n_out),
@@ -63,7 +63,8 @@ class DirectedLayer(tf.keras.layers.Layer):
         return self.activation(tf.matmul(inputs, self.kernel * self.mask) + self.bias)
 
     def get_directed_weights(self) -> np.ndarray:
-        return (self.kernel.numpy() * self.mask_np).astype(np.float32)
+        w = self.kernel.numpy() if hasattr(self.kernel, "numpy") else np.array(self.kernel)
+        return (np.asarray(w) * self.mask_np).astype(np.float32)
 
 
 def build_gennet(

@@ -266,19 +266,27 @@ code(
 
     def build(self, input_shape):
         n_in, n_out = self.mask_np.shape
-        self.mask = tf.constant(self.mask_np, dtype=self.dtype)
+        # Keras 3: add_weight's first positional arg is shape, not name.
+        self.mask = tf.constant(self.mask_np, dtype="float32")
         self.kernel = self.add_weight(
-            "kernel", shape=(n_in, n_out),
+            name="kernel",
+            shape=(n_in, n_out),
             initializer="glorot_uniform",
             regularizer=tf.keras.regularizers.l1(self.l1),
         )
-        self.bias = self.add_weight("bias", shape=(n_out,), initializer="zeros")
+        self.bias = self.add_weight(
+            name="bias",
+            shape=(n_out,),
+            initializer="zeros",
+        )
+        super().build(input_shape)
 
     def call(self, x):
         return self.activation(tf.matmul(x, self.kernel * self.mask) + self.bias)
 
     def directed_weights(self):
-        return self.kernel.numpy() * self.mask_np
+        w = self.kernel.numpy() if hasattr(self.kernel, "numpy") else np.array(self.kernel)
+        return np.asarray(w) * self.mask_np
 
 
 def build_gennet(bundle, l1=5e-4):
