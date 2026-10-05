@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+results/
+data/generated/
+*.h5
+.DS_Store
+.idea/
+.vscode/

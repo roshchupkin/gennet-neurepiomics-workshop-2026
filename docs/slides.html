@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GenNet · Neurepiomics 2026</title>
+  <style>
+    :root { --ink:#10233a; --muted:#4a6078; --line:#d7e1ec; --accent:#1f6f8b; --bg:#f4f7fb; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; background:#0d1b2a; color:var(--ink); font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif; }
+    .deck { height:100%; }
+    .slide { display:none; height:100%; padding:6vh 8vw; background:var(--bg); }
+    .slide.on { display:flex; flex-direction:column; justify-content:center; }
+    .kicker { color:var(--accent); letter-spacing:.08em; text-transform:uppercase; font-size:0.85rem; font-family: system-ui, sans-serif; margin:0 0 1rem; }
+    h1 { font-size: clamp(2rem, 4vw, 3.2rem); margin:0 0 .6rem; line-height:1.15; }
+    h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); margin:0 0 1rem; }
+    p, li { font-size: clamp(1.15rem, 2vw, 1.45rem); line-height:1.45; color:var(--ink); }
+    ul { margin:.2rem 0 0; padding-left:1.2rem; }
+    li { margin:.35rem 0; }
+    .muted { color:var(--muted); }
+    table { border-collapse:collapse; font-size:1.15rem; margin-top:.6rem; }
+    td, th { border-bottom:1px solid var(--line); text-align:left; padding:.45rem .8rem .45rem 0; }
+    .arch { display:flex; gap:0.7rem; align-items:center; flex-wrap:wrap; margin-top:1rem; font-family:system-ui,sans-serif; }
+    .box { background:#fff; border:1px solid var(--line); border-radius:10px; padding:.7rem 1rem; min-width:7rem; text-align:center; }
+    .arrow { color:var(--accent); font-size:1.6rem; }
+    .foot { position:fixed; bottom:1rem; right:1.4rem; color:#9eb0c3; font-family:system-ui,sans-serif; font-size:.85rem; }
+    .title-slide h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); }
+  </style>
+</head>
+<body>
+<div class="deck">
+  <section class="slide on title-slide">
+    <p class="kicker">Neurepiomics 2026 · San Antonio · 1 hour</p>
+    <h1>GenNet</h1>
+    <p>Biologically structured neural networks for genetic prediction and interpretation.</p>
+    <p class="muted">Gennady Roshchupkin · Erasmus MC · Computational Population Biology</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Two jobs</p>
+    <h2>Rank people, or name biology?</h2>
+    <ul>
+      <li><strong>PRS</strong> is the right tool if the job is a risk ranking.</li>
+      <li><strong>GenNet</strong> is the right tool if the job is which annotated genes and pathways the predictor used.</li>
+      <li>This hour is the second job, on a tiny simulated WMH-like label.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">The idea</p>
+    <h2>You draw the wires. The net may only use those wires.</h2>
+    <div class="arch">
+      <div class="box">SNPs</div><div class="arrow">→</div>
+      <div class="box">Genes</div><div class="arrow">→</div>
+      <div class="box">Pathways</div><div class="arrow">→</div>
+      <div class="box">Phenotype</div>
+    </div>
+    <p class="muted" style="margin-top:1.2rem">APOE SNPs may talk to APOE. They may not skip to COL4A1 unless you put that edge in the topology.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Configuration</p>
+    <h2>Three files. That is the whole input.</h2>
+    <table>
+      <tr><th>File</th><th>What it is</th></tr>
+      <tr><td><code>genotype.h5</code></td><td>People × SNPs (0/1/2)</td></tr>
+      <tr><td><code>subjects.csv</code></td><td>ID, label, row, train/val/test</td></tr>
+      <tr><td><code>topology.csv</code></td><td>Every allowed path from SNP toward the output</td></tr>
+    </table>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Training</p>
+    <h2>L1 sparsity makes unused edges go quiet.</h2>
+    <ul>
+      <li>Remaining weights are attached to named genes and pathways.</li>
+      <li>We will not train UK Biobank in this room.</li>
+      <li>Colab: 1,600 people, 192 SNPs, planted biology, CPU, about 40 seconds.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Interpretation</p>
+    <h2>What you read after training</h2>
+    <ul>
+      <li><strong>Weight paths</strong> — gene and pathway importance.</li>
+      <li><strong>NID</strong> — SNP pairs with strong joint weights.</li>
+      <li><strong>DFIM / PathExplain</strong> — slower interaction methods in the real CLI.</li>
+    </ul>
+    <p class="muted">Attribution is a hypothesis generator, not a diagnosis.</p>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Be honest</p>
+    <h2>Where GenNet should win — and lose</h2>
+    <ul>
+      <li>Lose: highly polygenic traits, lots of non-coding signal, vs a modern PRS.</li>
+      <li>Win: signal concentrated in annotated genes and pathways.</li>
+      <li>That second case is exactly what the practical plants.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">Practical</p>
+    <h2>Open the notebook. Runtime = CPU. Run all.</h2>
+    <ul>
+      <li>Inspect topology (SNP → gene → pathway).</li>
+      <li>Train, then compare AUC to L1 logistic regression.</li>
+      <li>Rank genes. Rank SNP–SNP interactions.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <p class="kicker">After today</p>
+    <h2>The real tool, and the longer programme</h2>
+    <ul>
+      <li>Paper · GitHub · A-to-Z Colab · <code>python GenNet.py interpret --help</code></li>
+      <li>ALIEN is the research map around GenNet, not a second install.</li>
+      <li>Questions.</li>
+    </ul>
+  </section>
+</div>
+<div class="foot"><span id="n"></span> · ← → or click</div>
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  function show(k){
+    i = (k + slides.length) % slides.length;
+    slides.forEach((s,j)=>s.classList.toggle('on', j===i));
+    document.getElementById('n').textContent = (i+1)+' / '+slides.length;
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key==='ArrowRight' || e.key===' ') { e.preventDefault(); show(i+1); }
+    if (e.key==='ArrowLeft') { e.preventDefault(); show(i-1); }
+  });
+  document.addEventListener('click', e => {
+    if (e.target.closest('a')) return;
+    show(e.clientX > innerWidth/2 ? i+1 : i-1);
+  });
+  show(0);
+</script>
+</body>
+</html>
