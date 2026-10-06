@@ -37,6 +37,8 @@ Paper figures first (architecture, planted simulation, schizophrenia Manhattan, 
 
 **Do not say:** “Deep learning outperforms GWAS.” It does not, here.
 
+The notebook is longer than the live hour: theory, paper figures, and a take-home CLI live next to the runnable cells. **Run all** still trains in ~40 s. Tell the room to skim while it runs; do not walk every markdown cell.
+
 ### 0:20–0:50 — practical
 
 Walk the room through these checkpoints. If someone is stuck, they can skip to the next markdown header; later cells do not depend on plots.
@@ -65,7 +67,7 @@ Three sentences:
 2. ALIEN is the longer programme (multi-omics, cohorts, configuration) — not a second package they install today.
 3. Questions.
 
-Homework if they ask: A-to-Z Colab, and the Communications Biology paper.
+Homework if they ask: notebook **section 9** (real CLI checklist), the A-to-Z Colab, and the Communications Biology paper.
 
 Local dry-run on this workstation (seed 7): test AUC **0.77**, gene ranks **APOE then COL4A1**, NID rank 1 **APOE_s0 × APOE_s1**, ~6 seconds. See [`EXPECTED.md`](EXPECTED.md).
 

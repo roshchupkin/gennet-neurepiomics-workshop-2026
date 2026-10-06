@@ -11,6 +11,10 @@ COLAB_URL = (
     "https://colab.research.google.com/github/roshchupkin/"
     "gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb"
 )
+FIG = (
+    "https://raw.githubusercontent.com/roshchupkin/"
+    "gennet-neurepiomics-workshop-2026/main/docs/figures"
+)
 
 CELLS = []
 
@@ -44,30 +48,30 @@ md(
 )
 
 md(
-    """# GenNet in one hour
+    f"""# GenNet: from genotype to named biology
 
-**Neurepiomics 2026** · Genetic and Multiomic Analyses · teaching practical
+**Neurepiomics 2026** · Genetic and Multiomic Analyses · teaching notebook
 
-This notebook is a **Colab-CPU** walk through the GenNet idea:
+Neuroepidemiology already **ranks people** well (GWAS, PRS-CS, LDpred). Naming **which annotated genes and pathways** a predictor used — including **SNP–SNP interaction** a linear score will miss — is a different job. That is what [GenNet](https://github.com/ArnovanHilten/GenNet) is for.
 
-1. Biology decides which SNP may talk to which gene and pathway.
-2. A small network is trained to predict a simulated “high WMH burden” label.
-3. We read **prediction**, **gene importance**, and **SNP–SNP interaction**.
+![GenNet architecture]({FIG}/paper_fig1.png)
 
-It is **not** a GWAS, not UK Biobank, and not the full GenNet CLI. Gene names (APOE, COL4A1, …) are a story scaffold. Allele frequencies and effects are invented so the hour can finish.
+*Fig. 1 from van Hilten et al., Communications Biology 2021 (CC BY 4.0). SNPs connect only to their genes; genes connect only to pathways. You draw those wires; the net may only use them.*
 
-**To start:** `File → Save a copy in Drive`, then `Runtime → Change runtime type → CPU`, then `Runtime → Run all`. GPU is not needed.
+**Live hour:** `File → Save a copy in Drive` → Runtime = **CPU** → `Runtime → Run all`. GPU is not needed. Training is about 40 seconds. You can skim the theory while it runs.
 
-This hour is **not** the full [A-to-Z GenNet Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb). That notebook installs the real CLI, converts PLINK, builds an Annovar gene topology, trains, and draws a Manhattan plot. Here we keep the same scientific objects (topology, weight-path importance, Manhattan) on a tiny simulated WMH-like trait, and we add a lasso comparison plus NID interactions — pieces the A-to-Z Colab does not run.
+**Take home:** the theory, paper figures, and section 9 (real CLI) are the path to your own PLINK/VCF. This notebook is a teaching replica, not UK Biobank.
 
-Links: [GenNet paper](https://www.nature.com/articles/s42003-021-02622-z) · [GitHub](https://github.com/ArnovanHilten/GenNet) · [ALIEN](https://www.roshchupkin.org/alien/) · [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
+It is **not** a GWAS and **not** a WMH discovery. Gene names (APOE, COL4A1, …) are a story scaffold so the topology looks like a CHARGE-style SVD/AD endophenotype.
+
+Links: [paper](https://www.nature.com/articles/s42003-021-02622-z) · [GitHub](https://github.com/ArnovanHilten/GenNet) · [ALIEN](https://www.roshchupkin.org/alien/) · [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
 """
 )
 
 md(
     """## 0. Imports
 
-Stock Colab already has TensorFlow, scikit-learn, pandas, and matplotlib. No GenNet pip install.
+Stock Colab already has TensorFlow, scikit-learn, pandas, and matplotlib. No GenNet pip install (the real CLI pins TensorFlow 2.11 and often fails here).
 """
 )
 
@@ -85,42 +89,41 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 tf.get_logger().setLevel("ERROR")
-print("tensorflow", tf.__version__)
-rng_global = np.random.default_rng(7)"""
+print("tensorflow", tf.__version__)"""
 )
 
 md(
-    """## 1. What GenNet is configuring
+    f"""## 1. What GenNet is configuring
 
-A fully connected net would let every SNP influence every hidden unit. GenNet forbids that. You supply a **topology**: each row is one allowed path.
+A fully connected net would let every SNP talk to every hidden unit. With a million variants that is tens of billions of weights — and none of them have a gene name. GenNet **forbids** unbiological edges. You supply a **topology**: each row is one allowed path (usually Annovar SNP→gene, then KEGG or GTEx gene→pathway).
 
-In the real tool those paths usually come from Annovar (SNP→gene) and KEGG or GTEx (gene→pathway). Here we write the same table by hand for 24 named genes and four pathways.
+The CLI wants three files. That is the whole input.
 
-The CLI then wants three files:
+![Three files]({FIG}/wiki_overview.png)
 
 | File | Role |
 |------|------|
-| `genotype.h5` | people × SNPs |
+| `genotype.h5` | people × SNPs (0/1/2) |
 | `subjects.csv` | id, label, genotype row, train/val/test (`set` = 1/2/3) |
 | `topology.csv` | allowed connections |
 
-We keep the matrices in memory. The tables are printed so you can see what you would write on disk.
+Today we keep the matrices in memory and print the same tables you would write on disk.
 """
 )
 
 md(
     """## 2. Simulate a tiny SVD-flavored cohort
 
-1,600 people, 24 genes × 8 SNPs = 192 variants. Independent genotypes (no LD), Hardy–Weinberg draws.
+**Live hour.** 1,600 people, 24 genes × 8 SNPs = 192 variants. Independent genotypes (no LD), Hardy–Weinberg draws.
 
-Pathways:
+Pathways (teaching names, not a real annotation):
 
 - `lipid_endocytosis`: APOE, ABCA7, CLU, SORL1
 - `immune`: TREM2, CD33, CR1, MS4A6A
 - `vascular_matrix`: COL4A1, NOTCH3, FOXF2, HTRA1
-- `background`: housekeeping names used as decoys
+- `background`: housekeeping decoys
 
-The **label is simulated**. Do not treat the later gene ranking as a WMH discovery.
+**The label is simulated.** Do not treat the later gene ranking as a WMH discovery. We plant known biology so you can see whether the net recovers it — the same logic as Fig. 2a in the paper.
 """
 )
 
@@ -227,13 +230,15 @@ def split(bundle):
 
 
 bundle = simulate_cohort()
-print(f\"people={bundle['X'].shape[0]}  SNPs={bundle['X'].shape[1]}  prevalence={bundle['y'].mean():.2f}\")
+print(f"people={bundle['X'].shape[0]}  SNPs={bundle['X'].shape[1]}  prevalence={bundle['y'].mean():.2f}")
 print("split counts", {k: int((bundle['sets'] == k).sum()) for k in (1, 2, 3)})
 bundle["topology"].groupby(["layer2_name", "layer1_name"]).size().head(12)"""
 )
 
 md(
     """### Look at the topology the way GenNet would
+
+Each row is one allowed path. APOE SNPs may talk to APOE, then to `lipid_endocytosis`. They may not skip to COL4A1 unless you put that edge in the table — that is the scientific choice.
 """
 )
 
@@ -248,11 +253,43 @@ display(bundle["subjects"].head())"""
 )
 
 md(
-    """## 3. A teaching replica of the directed layer
+    """### Why the mask matters (parameter count)
+
+A dense layer from 192 SNPs to 24 genes would have 192×24 = 4,608 weights. The biological mask keeps **one gene per SNP** → 192 weights. At UK Biobank scale the gap is millions vs billions. That is why GenNet can train on exomes on a single GPU in the paper.
+"""
+)
+
+code(
+    """n_snps, n_genes = bundle["snp_gene_mask"].shape
+n_pw = bundle["gene_pathway_mask"].shape[1]
+dense = n_snps * n_genes + n_genes * n_pw
+sparse = int(bundle["snp_gene_mask"].sum() + bundle["gene_pathway_mask"].sum())
+fig, ax = plt.subplots(figsize=(5.2, 3.2))
+ax.bar(["Dense SNP→gene→pw", "GenNet mask"], [dense, sparse], color=["#9eb0c3", "#1f6f8b"])
+ax.set_ylabel("Learnable edges in the two hidden maps")
+ax.set_title("Biology prunes the wires")
+for i, v in enumerate([dense, sparse]):
+    ax.text(i, v, f" {v:,}", va="bottom")
+plt.show()
+print(f"sparsity: {sparse}/{dense} = {sparse/dense:.1%} of a dense net")"""
+)
+
+md(
+    f"""## 3. A teaching replica of the directed layer
 
 Published GenNet uses `LocallyDirected1D`: a sparse mask times a weight matrix. That class is tied to TensorFlow 2.11 internals, which is why a full install is a bad idea in a 60-minute Colab.
 
-The layer below is the same **scientific** object at this scale: `output = activation( X @ (W ⊙ M) + b )`. A 1 in `M` is an allowed biological edge. L1 on `W` pushes unused edges toward zero.
+The layer below is the same **scientific** object at this scale:
+
+\\[
+y = \\mathrm{{act}}\\bigl(X\\,(W \\odot M) + b\\bigr)
+\\]
+
+A 1 in \\(M\\) is an allowed biological edge. **L1 on \\(W\\)** is a polygenicity knob: a larger penalty and the net uses fewer genes, like a lasso.
+
+![Planted causal SNPs get thick weights]({FIG}/paper_fig2a.png)
+
+*Fig. 2a, same paper. Causal SNPs (red) get large weights; control SNPs stay grey. Today's toy is that experiment with an APOE-like gene plus a planted interaction.*
 """
 )
 
@@ -316,6 +353,8 @@ md(
     """## 4. Train (CPU, about 30–60 seconds)
 
 Early stopping watches validation AUC. If this cell is slow, wait; do not switch to GPU.
+
+On a highly heritable, low-polygenicity trait the paper's simulations (Fig. 2b–c) show AUC rising with sample size. We are in that regime on purpose: 1,600 people and a planted gene. Real WMH in CHARGE will not look this clean.
 """
 )
 
@@ -349,7 +388,11 @@ plt.show()"""
 md(
     """## 5. Prediction: GenNet vs L1 logistic regression
 
-Lasso sees 192 SNPs with no gene names. GenNet is forced to pool SNPs inside genes. On this planted trait both should beat chance; they answer different questions.
+Lasso sees 192 SNPs with **no gene names**. It can pick `APOE_s0` but it cannot say "APOE". GenNet is forced to pool SNPs inside genes, then genes inside pathways.
+
+In van Hilten et al. 2021 (Sweden schizophrenia exome), GenNet test AUC was **0.74** vs lasso **0.65**. That is a real, modest gain — not "deep learning beat GWAS." The paper used **exome only**, so it was not a bake-off against a genome-wide PRS.
+
+On today's planted trait both methods should beat chance. They answer different questions.
 """
 )
 
@@ -374,11 +417,15 @@ display(coef.head(10))"""
 md(
     """## 6. Explainability: weight paths to genes and pathways
 
-GenNet importance here is the product of:
+GenNet importance is the product of weights along each allowed path:
 
 `mean |SNP→gene| × |gene→pathway| × |pathway→output|`
 
-That is the same idea as `python GenNet.py interpret -type get_weight_scores` (and the Manhattan / sunburst plots in the real tool).
+That is **effect size along a named path**, not a p-value and not a GWAS hit. The same idea is `python GenNet.py interpret -type get_weight_scores`. Eye and hair colour in the paper recovered *HERC2* / *OCA2* (sanity check). Schizophrenia looks polygenic — many genes light up.
+
+![Schizophrenia gene Manhattan]({FIG}/paper_fig2d.png)
+
+*Fig. 2d · gene-layer weights for schizophrenia, coloured by chromosome. Same picture CHARGE already reads; different quantity.*
 """
 )
 
@@ -415,9 +462,13 @@ display(pd.DataFrame(pw_rows).sort_values("importance", ascending=False))"""
 )
 
 md(
-    """### Manhattan of SNP relative importance (from the A-to-Z Colab)
+    f"""### Manhattan of SNP relative importance
 
-The original tutorial ends with `python GenNet.py plot -type manhattan_relative_importance`. That plot is the product of weights along each SNP’s allowed path, scaled to 1. CHARGE rooms already read Manhattan plots — this is that picture, from the net instead of from a GWAS p-value.
+The A-to-Z Colab ends with `python GenNet.py plot -type manhattan_relative_importance`. CHARGE rooms already read Manhattan plots — this is that picture, from the **net** instead of from a GWAS p-value.
+
+On real data the CLI can also draw a **sunburst** of KEGG pathways (Fig. 3 in the paper). Read it from the centre. For schizophrenia the large slice was viral infectious-disease pathways — a **hypothesis**, not a diagnosis.
+
+![KEGG sunburst]({FIG}/paper_fig3.png)
 """
 )
 
@@ -443,7 +494,7 @@ for i, chrom in enumerate(sorted(snp_imp["chr"].unique())):
     ax.scatter(sub["pos"], sub["relative_importance"], s=18, c=colors[i % 4], label=f"chr {chrom}" if chrom in (19, 13) else None)
 ax.set_xlabel("SNP index (grouped by gene / chromosome)")
 ax.set_ylabel("Relative importance")
-ax.set_title("Relative importance of all SNPs")
+ax.set_title("Relative importance of all SNPs (this toy)")
 ax.set_ylim(0, 1.25)
 top = snp_imp.sort_values("raw_importance", ascending=False).head(6)
 for _, r in top.iterrows():
@@ -455,16 +506,36 @@ plt.show()"""
 md(
     """## 7. Interaction: a readable NID
 
-[NID](https://arxiv.org/abs/1705.04977) (Tsang et al.) looks for features that share a hidden unit with large incoming weights. GenNet applies that inside each gene:
+A linear PRS **adds** SNP effects. Biology often **multiplies** them: two modest SNPs in the same gene can matter together and barely matter apart. Lasso tends to keep the stronger variant and shrink the partner. A gene node that sees both can learn a non-additive pattern — that is the point of the directed hidden layer.
+
+[NID](https://arxiv.org/abs/1705.04977) (Tsang et al.) looks for features that share a hidden unit with large incoming weights. GenNet applies that **inside each gene**:
 
 `strength(i, j) = min(|w_i|, |w_j|) × |w_gene→pathway| × |w_pathway→out|`
 
-Full CLI: `python GenNet.py interpret -type NID`. DFIM and PathExplain are the heavier options; they will not finish in this hour on real data.
+The A-to-Z Colab never runs this. Full CLI: `python GenNet.py interpret -type NID`. **DFIM** (perturb SNP A, watch SNP B's importance) and **PathExplain** (Expected Hessian) are the slower cousins — cluster jobs, not this room.
 """
 )
 
 code(
-    """nid_rows = []
+    """fig, ax = plt.subplots(figsize=(8.2, 2.6))
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 3)
+ax.axis("off")
+boxes = [
+    (0.3, 1.7, "APOE_s0"), (0.3, 0.5, "APOE_s1"),
+    (3.3, 1.1, "APOE gene"), (5.8, 1.1, "lipid pw"), (8.2, 1.1, "y"),
+]
+for x, y, t in boxes:
+    ax.add_patch(plt.Rectangle((x, y), 1.8, 0.7, fill=True, facecolor="#fff4f1", edgecolor="#c45c4a", lw=1.5))
+    ax.text(x + 0.9, y + 0.35, t, ha="center", va="center", fontsize=10)
+ax.annotate("", xy=(3.3, 1.45), xytext=(2.1, 2.05), arrowprops=dict(arrowstyle="->", color="#1f6f8b"))
+ax.annotate("", xy=(3.3, 1.25), xytext=(2.1, 0.85), arrowprops=dict(arrowstyle="->", color="#1f6f8b"))
+ax.annotate("", xy=(5.8, 1.45), xytext=(5.1, 1.45), arrowprops=dict(arrowstyle="->", color="#1f6f8b"))
+ax.annotate("", xy=(8.2, 1.45), xytext=(7.6, 1.45), arrowprops=dict(arrowstyle="->", color="#1f6f8b"))
+ax.set_title("NID: pairs that share a gene node with large incoming weights")
+plt.show()
+
+nid_rows = []
 for g, gene in enumerate(bundle["gene_names"]):
     snps = np.where(bundle["snp_to_gene"] == g)[0]
     p = int(bundle["gene_to_pathway"][g])
@@ -488,7 +559,7 @@ print("Planted pair (look after you have stared at the table):", bundle["interac
 md(
     """## 8. What you should have recovered
 
-The simulator planted:
+The simulator planted (do not tell the room until they have ranked genes):
 
 1. Strong additive **APOE** (`APOE_s0`, `APOE_s1`).
 2. A **multiplicative interaction** of those two SNPs (NID target).
@@ -497,7 +568,7 @@ The simulator planted:
 
 If APOE is absent from the top 5, re-run the training cell. The seed is fixed, so a second run should look similar.
 
-This is the point of the exercise: on a trait whose signal **really does** sit in annotated genes, a directed net can name the gene and surface the pair. That is not a claim about WMH in CHARGE.
+This is Fig. 2a as an exercise: on a trait whose signal **really does** sit in annotated genes, a directed net can name the gene and surface the pair. That is not a claim about WMH in CHARGE. It is why you might try GenNet on *your* endophenotype at home.
 """
 )
 
@@ -514,39 +585,43 @@ print("Planted interaction rank in NID table:", pair_rank)"""
 )
 
 md(
-    """## 9. How this maps to the real GenNet CLI (the A-to-Z Colab)
+    """## 9. Take home: run this on real data
 
-The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb) is the **software tutorial**. It clones GenNet, `pip install`s the pinned TensorFlow 2.11 stack, converts example PLINK, builds a **SNP → gene** topology from precomputed Annovar output, trains with `python GenNet.py train`, and plots Manhattan relative importance.
+The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb) is the **software tutorial** (convert PLINK, Annovar gene topology, Manhattan). This hour skipped convert because current Colab will not cleanly install TensorFlow 2.11, and added a pathway layer, a lasso baseline, and NID.
 
-This hour skipped convert/Annovar (too slow and too brittle on current Colab) and added three things A-to-Z does not run: a **pathway** layer, a **lasso** baseline, and **NID** interactions.
+### When GenNet is the right tool
 
-Bundled examples in the real repo, if you continue after today:
+- The scientific question is **which annotated genes/pathways** (and interactions) the predictor used.
+- You have a reason to believe signal sits in exons/genes/pathways (endophenotypes, Mendelian-looking genes, candidate pathways).
+- You can write or generate a topology (Annovar, KEGG, GTEx, your own CSV).
 
-| Example | What it is |
-|---------|------------|
-| `examples/example_classification/` | Toy SNP→gene classification (`HERC2`, `BRCA2`, `ApoE`, …) |
-| `examples/example_regression/` | Same idea with a pathway layer |
-| `examples/A_to_Z/` | PLINK → hdf5 → Annovar gene topology → Manhattan |
+### When it is the wrong tool
+
+- You only need a **risk ranking** → modern PRS (PRS-CS, LDpred, clumped + LDpred).
+- The trait is highly polygenic with most signal **non-coding**. Annotation-only SNPs and hierarchical pooling will dilute that.
+- You need a p-value. Weight-path importance is an effect along a path, not a significance test.
+
+### Checklist on a cluster or laptop (conda `env_GenNet`, Python 3.10, TF 2.11)
+
+1. Clone https://github.com/ArnovanHilten/GenNet and `pip install -r requirements_GenNet.txt`.
+2. PLINK or VCF → `python GenNet.py convert -g ./plink/ -study_name mystudy -step all`.
+3. Build `subjects.csv`: `patient_id`, `labels`, `genotype_row`, `set` (1/2/3). Put close relatives in train, as in the paper.
+4. Topology: Annovar gene layer, optional KEGG. Covariates (age, sex, PCs) exist in the CLI (`example_regression_cov`).
+5. Train, plot, interpret:
 
 ```bash
-python GenNet.py convert  -g ./plink/ -study_name mystudy -o ./processed_data/
-python GenNet.py topology -type create_annovar_input -path ./processed_data/ -study_name mystudy
-python GenNet.py topology -type create_gene_network  -path ./processed_data/ -study_name mystudy
-python GenNet.py train    -path ./run/ -ID 17 -L1 0.01 -epochs 100
-python GenNet.py plot     -ID 17 -type manhattan_relative_importance
+python GenNet.py train -path ./run/ -ID 17 -L1 0.01 -epochs 100
+python GenNet.py plot  -ID 17 -type manhattan_relative_importance
+python GenNet.py plot  -ID 17 -type sunburst
 python GenNet.py interpret -type get_weight_scores -resultpath results/GenNet_experiment_17_/
 python GenNet.py interpret -type NID -resultpath results/GenNet_experiment_17_/
 ```
 
 Useful knobs: `-L1`, `-L1_act`, `-problem_type regression`, `-filters`, `-onehot`, `-hidden_activation`.
 
-**ALIEN** ([roshchupkin.org/alien](https://www.roshchupkin.org/alien/)) is the research programme around this code — other topologies, multi-omics, cohorts — not a second pip package.
+Bundled toys: `examples/example_classification/` (SNP→gene), `example_regression/` (adds a pathway), `examples/A_to_Z/` (PLINK + Annovar).
 
-**Limits to take home**
-
-- Annotation-only SNPs miss much regulatory signal.
-- A modern PRS will usually predict a highly polygenic trait better.
-- Attribution is a hypothesis. It is not a diagnosis.
+**ALIEN** ([roshchupkin.org/alien](https://www.roshchupkin.org/alien/)) is the research map around this code — other topologies, multi-omics, brain regulatory context — not a second pip package. Attribution is a hypothesis. Replication still exists. It is not a diagnosis.
 """
 )
 
@@ -565,7 +640,6 @@ nb = {
     "cells": CELLS,
 }
 
-# strip extra trailing newlines on last line of each cell (nbformat style: last line often has no extra)
 for cell in nb["cells"]:
     if cell["source"] and cell["source"][-1].endswith("\n"):
         cell["source"][-1] = cell["source"][-1][:-1] if cell["source"][-1] != "\n" else cell["source"][-1]

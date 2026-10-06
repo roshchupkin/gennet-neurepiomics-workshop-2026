@@ -17,6 +17,8 @@ Stock Colab CPU. No `pip` of GenNet.
 
 Planted (instructor): APOE additive + APOE_s0×APOE_s1 + weaker COL4A1. Simulated WMH, not real data.
 
+After the hour: notebook **section 9** is the path to real PLINK/VCF (clone GenNet, convert, topology, train, interpret).
+
 ## Full GenNet CLI
 
 Canonical repository: https://github.com/ArnovanHilten/GenNet
