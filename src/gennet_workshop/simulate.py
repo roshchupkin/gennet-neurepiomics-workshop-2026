@@ -88,6 +88,7 @@ def simulate_cohort(
     n_samples: int = 1600,
     n_snps_per_gene: int = N_SNPS_PER_GENE,
     seed: int = 7,
+    interaction_strength: float = 1.15,
 ) -> SimulatedCohort:
     """Draw genotypes and a binary 'high WMH burden' label.
 
@@ -101,6 +102,12 @@ def simulate_cohort(
     Splits: 70% train (set=1), 15% validation (set=2), 15% test (set=3).
     Genotypes are independent Bernoulli draws coded 0/1/2 (no LD).
     """
+    if not isinstance(n_snps_per_gene, (int, np.integer)) or n_snps_per_gene < 2:
+        raise ValueError("n_snps_per_gene must be an integer >= 2 for the planted pair")
+    if not isinstance(n_samples, (int, np.integer)) or n_samples < 20:
+        raise ValueError("n_samples must be an integer >= 20 for train/val/test splits")
+    if not np.isfinite(interaction_strength):
+        raise ValueError("interaction_strength must be finite")
     rng = np.random.default_rng(seed)
     gene_names, pathway_names, gene_to_pathway = _catalog()
     n_genes = len(gene_names)
@@ -154,14 +161,15 @@ def simulate_cohort(
     logit = (
         1.55 * z(X[:, a])
         + 0.95 * z(X[:, b])
-        + 1.15 * z(X[:, a]) * z(X[:, b])
+        + interaction_strength * z(X[:, a]) * z(X[:, b])
         + 0.55 * z(X[:, col4_idx].mean(axis=1))
     )
     logit = logit - logit.mean()
     prob = 1.0 / (1.0 + np.exp(-logit))
     y = rng.binomial(1, prob).astype(np.float32)
 
-    order = rng.permutation(n_samples)
+    # Preserve the same split when changing only the phenotype mechanism.
+    order = np.random.default_rng(seed + 1).permutation(n_samples)
     n_train = int(0.70 * n_samples)
     n_val = int(0.15 * n_samples)
     sets = np.empty(n_samples, dtype=np.int8)
@@ -189,6 +197,7 @@ def simulate_cohort(
         "vascular_gene": VASCULAR_GENE,
         "interaction_snps": (snp_names[a], snp_names[b]),
         "interaction_indices": (int(a), int(b)),
+        "interaction_strength": float(interaction_strength),
         "prevalence": float(y.mean()),
     }
     return SimulatedCohort(

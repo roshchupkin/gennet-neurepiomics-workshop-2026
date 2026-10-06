@@ -113,7 +113,12 @@ def nid_pairwise(model, cohort: SimulatedCohort, top_n: int = 8) -> pd.DataFrame
     Full GenNet NID (`python GenNet.py interpret -type NID`) uses the same
     Tsang-style idea on the trained LocallyDirected weights. This version is
     small enough to read in a workshop cell.
+
+    This ranks candidates; strong additive features can also score highly.
+    Scores are not calibrated interaction effects or significance tests.
     """
+    if not isinstance(top_n, (int, np.integer)) or top_n < 2:
+        raise ValueError("top_n must be an integer >= 2")
     w_sg, w_gp, w_out = directed_weights(model)
     rows = []
     for g, gene in enumerate(cohort.gene_names):
@@ -135,10 +140,17 @@ def nid_pairwise(model, cohort: SimulatedCohort, top_n: int = 8) -> pd.DataFrame
                         "strength": strength,
                     }
                 )
-    return pd.DataFrame(rows).sort_values("strength", ascending=False).reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values(
+        ["strength", "gene", "snp_i", "snp_j"], ascending=[False, True, True, True]
+    ).reset_index(drop=True)
 
 
 def fit_lasso(cohort: SimulatedCohort, C: float = 0.2) -> Tuple[Pipeline, float, pd.DataFrame]:
+    from sklearn import __version__ as sklearn_version
+
+    # sklearn 1.8 deprecated penalty; older versions require it for L1.
+    version = tuple(int(v) for v in sklearn_version.split(".")[:2])
+    penalty_kwargs = {"l1_ratio": 1.0} if version >= (1, 8) else {"penalty": "l1"}
     X_train, y_train, _, _, X_test, y_test = cohort.split()
     pipe = Pipeline(
         [
@@ -146,7 +158,7 @@ def fit_lasso(cohort: SimulatedCohort, C: float = 0.2) -> Tuple[Pipeline, float,
             (
                 "clf",
                 LogisticRegression(
-                    penalty="l1",
+                    **penalty_kwargs,
                     solver="saga",
                     C=C,
                     max_iter=4000,
@@ -177,6 +189,41 @@ def evaluate_auc(model, cohort: SimulatedCohort) -> Dict[str, float]:
         pred = model.predict(X, verbose=0).ravel()
         out[name] = float(roc_auc_score(y, pred))
     return out
+
+
+def mixed_difference(surface: np.ndarray) -> np.ndarray:
+    """Adjacent 2D finite differences, on the scale supplied by the caller."""
+    surface = np.asarray(surface)
+    if surface.ndim != 2 or min(surface.shape) < 2:
+        raise ValueError("surface must be 2D with at least two rows and columns")
+    return surface[1:, 1:] - surface[1:, :-1] - surface[:-1, 1:] + surface[:-1, :-1]
+
+
+def pair_logit_surface(model, reference: np.ndarray, pair: Tuple[int, int]) -> np.ndarray:
+    """Mean logit over fixed backgrounds for all 0/1/2 dosage combinations.
+
+    This probes the fitted predictor, not a biological intervention or a
+    significance test. Independent dosages are appropriate only for this no-LD toy.
+    """
+    import tensorflow as tf
+
+    reference = np.asarray(reference, dtype=np.float32)
+    i, j = pair
+    if reference.ndim != 2 or len(reference) == 0 or i == j:
+        raise ValueError("reference must be nonempty and pair indices distinct")
+    if not (0 <= i < reference.shape[1] and 0 <= j < reference.shape[1]):
+        raise ValueError("pair indices are outside the reference features")
+    grid = np.stack(np.meshgrid(np.arange(3), np.arange(3), indexing="ij"), axis=-1)
+    X = np.repeat(reference[:, None, :], 9, axis=1)
+    X[:, :, [i, j]] = grid.reshape(9, 2)
+    # Compute logits directly, avoiding sigmoid clipping and link-scale artifacts.
+    output = model.get_layer("output")
+    hidden = tf.keras.Model(model.input, output.input)(
+        X.reshape(-1, reference.shape[1]), training=False
+    ).numpy()
+    kernel, bias = output.get_weights()
+    logits = hidden @ kernel + bias
+    return logits.reshape(len(reference), 3, 3).mean(axis=0)
 
 
 def planted_recovery(

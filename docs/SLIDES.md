@@ -52,7 +52,7 @@ Linear PRS adds. Biology often multiplies. Two SNPs in one gene can matter toget
 ---
 
 **10. NID formula**  
-`min(|wi|, |wj|) × |w_later|`. DFIM: knock out A, watch B. Cluster, not this room.
+`min(|wi|, |wj|) × |w_later|` ranks candidates. Strong additive effects can also score highly; use the additive-only control and logit response surfaces. DFIM: knock out A, watch B. Cluster, not this room.
 
 ---
 
@@ -67,7 +67,7 @@ GenNet is the released code. ALIEN is the map: data/knowledge → train → inve
 ---
 
 **13. Honest limits**  
-Loses to modern PRS on highly polygenic, non-coding traits. Wins when signal is in annotated genes, or when the question is interaction.
+Compare against suitable PRS/prediction baselines. Variant coverage and topology matter, especially for non-coding traits. This toy does not establish a general winner.
 
 ---
 

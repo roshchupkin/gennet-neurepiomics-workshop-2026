@@ -15,7 +15,7 @@ from .simulate import SimulatedCohort
 
 
 class DirectedLayer(tf.keras.layers.Layer):
-    """y = activation(x @ (W ⊙ M) + b), with L1 on W.
+    """y = activation(x @ (W ⊙ M) + b), with L1 only on allowed edges.
 
     M is a 0/1 mask of shape (n_in, n_out). A 1 means that input node is
     allowed to connect to that output node (SNP→gene, or gene→pathway).
@@ -32,6 +32,10 @@ class DirectedLayer(tf.keras.layers.Layer):
         mask = np.asarray(mask, dtype=np.float32)
         if mask.ndim != 2:
             raise ValueError(f"mask must be 2D, got {mask.shape}")
+        if not np.all(np.isin(mask, [0, 1])):
+            raise ValueError("mask must contain only 0 and 1")
+        if l1 < 0:
+            raise ValueError("l1 must be non-negative")
         self.mask_np = mask
         self.activation_name = activation
         self.l1 = float(l1)
@@ -48,7 +52,6 @@ class DirectedLayer(tf.keras.layers.Layer):
             name="kernel",
             shape=(n_in, n_out),
             initializer="glorot_uniform",
-            regularizer=tf.keras.regularizers.l1(self.l1),
             trainable=True,
         )
         self.bias = self.add_weight(
@@ -60,7 +63,17 @@ class DirectedLayer(tf.keras.layers.Layer):
         super().build(input_shape)
 
     def call(self, inputs):
-        return self.activation(tf.matmul(inputs, self.kernel * self.mask) + self.bias)
+        directed_kernel = self.kernel * self.mask
+        self.add_loss(self.l1 * tf.reduce_sum(tf.abs(directed_kernel)))
+        return self.activation(tf.matmul(inputs, directed_kernel) + self.bias)
+
+    def get_config(self):
+        return {
+            **super().get_config(),
+            "mask": self.mask_np.tolist(),
+            "activation": self.activation_name,
+            "l1": self.l1,
+        }
 
     def get_directed_weights(self) -> np.ndarray:
         w = self.kernel.numpy() if hasattr(self.kernel, "numpy") else np.array(self.kernel)
@@ -69,17 +82,27 @@ class DirectedLayer(tf.keras.layers.Layer):
 
 def build_gennet(
     cohort: SimulatedCohort,
-    l1: float = 1e-3,
+    l1: float = 5e-4,
     hidden_activation: str = "tanh",
+    seed: int = 7,
 ) -> tf.keras.Model:
+    # Seed initialization and training shuffle, independently of simulation.
+    tf.keras.utils.set_random_seed(seed)
     n_snps = cohort.n_snps
     inputs = tf.keras.Input(shape=(n_snps,), name="genotype")
+    X_train = cohort.split()[0]
+    # Fit preprocessing on training participants only. Keep raw dosages at the API.
+    normalized = tf.keras.layers.Normalization(
+        mean=X_train.mean(axis=0),
+        variance=X_train.var(axis=0),
+        name="train_normalization",
+    )(inputs)
     genes = DirectedLayer(
         cohort.snp_gene_mask,
         activation=hidden_activation,
         l1=l1,
         name="gene_layer",
-    )(inputs)
+    )(normalized)
     pathways = DirectedLayer(
         cohort.gene_pathway_mask,
         activation=hidden_activation,

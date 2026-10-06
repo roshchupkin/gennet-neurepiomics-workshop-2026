@@ -26,7 +26,7 @@ def main() -> int:
         f"pair={cohort.planted['interaction_snps']}"
     )
     model = build_gennet(cohort, l1=5e-4)
-    train_gennet(model, cohort, epochs=35, verbose=1)
+    train_gennet(model, cohort, epochs=40, verbose=1)
     aucs = evaluate_auc(model, cohort)
     genes = gene_importance(model, cohort)
     nid = nid_pairwise(model, cohort)

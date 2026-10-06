@@ -13,9 +13,12 @@ Stock Colab CPU. No `pip` of GenNet.
 | Train | val AUC ≫ 0.5 |
 | Lasso | top SNPs should include `APOE_s0` / `APOE_s1` |
 | Gene importance | APOE high; COL4A1 often present |
-| NID | `APOE_s0` with `APOE_s1` |
+| NID candidates | `APOE_s0` with `APOE_s1`; a high score does not prove interaction |
+| Additive-only control | Compare known and fitted logit mixed differences |
 
 Planted (instructor): APOE additive + APOE_s0×APOE_s1 + weaker COL4A1. Simulated WMH, not real data.
+
+Training restarts from model seed 7. Rerun downstream cells after retraining. Gene importance is a weight-based score, not an effect size.
 
 After the hour: notebook **section 9** is the path to real PLINK/VCF (clone GenNet, convert, topology, train, interpret).
 

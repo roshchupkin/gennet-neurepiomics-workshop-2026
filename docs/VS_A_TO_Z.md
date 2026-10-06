@@ -32,12 +32,12 @@ It never calls `python GenNet.py interpret` (no NID, DFIM, PathExplain, RLIPP). 
 | | A-to-Z Colab | Neurepiomics hour |
 |--|----------------|-------------------|
 | Install | Full GenNet + TF 2.11 | Stock Colab TensorFlow |
-| Data | Bundled PLINK / hdf5 | Simulated 1,600 × 192, planted APOE × COL4A1 |
+| Data | Bundled PLINK / hdf5 | Simulated 1,600 × 192, APOE_s0 × APOE_s1 plus additive COL4A1 |
 | Topology | SNP → gene (Annovar) | SNP → gene → **pathway** |
 | Train | `python GenNet.py train` | Keras `DirectedLayer` (same mask idea as `LocallyDirected1D`) |
 | Prediction | Train/val curves, AUC | AUC **and** L1 logistic |
 | Plots | Manhattan of SNP weights | Gene bars **and** Manhattan |
-| Interactions | Not run | Simplified NID |
+| Interactions | Not run | NID candidates plus additive-only control and logit response surfaces |
 | Time on current Colab | Often dies at pip | Tens of seconds |
 
 ## Why we did not just run A-to-Z on Wednesday

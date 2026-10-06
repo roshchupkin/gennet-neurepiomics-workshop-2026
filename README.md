@@ -24,7 +24,7 @@ replica of the GenNet idea, plus pointers to the real CLI.
 currently ships a much newer TensorFlow, so a full `pip install -r requirements_GenNet.txt`
 often fails in the first ten minutes of a workshop. The notebook keeps the same
 scientific structure (masked SNP → gene → pathway connections, L1 sparsity, weight-path
-importance, NID-style interactions) with code that runs on stock Colab **CPU**.
+importance, NID-style candidate scores plus an additive-only control) with code that runs on stock Colab **CPU**.
 
 After the hour, the [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
 and `python GenNet.py --help` are the path to real data.
@@ -33,9 +33,9 @@ and `python GenNet.py --help` are the path to real data.
 
 | Min | Block | What happens |
 |-----|--------|----------------|
-| 0–5 | Open Colab | Click the README badge. Runtime → CPU. Run the first two cells. |
-| 5–23 | Talk | Paper figures, interpretation, NID, ALIEN, then the toy. |
-| 20–50 | Practical | Simulate → inspect topology → train → AUC vs lasso → gene ranks → NID. |
+| 0–5 | Open Colab | Click the README badge. Runtime → CPU. Run the Imports and Simulate code cells. |
+| 5–20 | Talk | Paper figures, interpretation, NID, ALIEN, then the toy. |
+| 20–50 | Practical | Simulate → inspect topology → train → AUC vs lasso → gene ranks → NID candidates → additive-only control. |
 | 50–60 | Wrap | How this maps to CHARGE-scale GenNet, caveats, Q&A. |
 
 Instructor notes: [`docs/INSTRUCTOR.md`](docs/INSTRUCTOR.md)  
@@ -53,10 +53,10 @@ That badge opens [`notebooks/01_gennet_in_one_hour.ipynb`](notebooks/01_gennet_i
 You do **not** need a GPU. The simulated cohort is 1,600 people × 192 SNPs.
 Training is tens of seconds on CPU.
 
-**What is planted (do not tell the room until they have ranked genes):**
+**Instructor answer key (participants: inspect the rankings first):**
 
 1. Strong additive **APOE** (two SNPs), loosely analogous to ε4.
-2. A **within-APOE interaction** of those two SNPs — the NID target.
+2. A **within-APOE interaction** of those two SNPs — a candidate for NID and response-surface checks.
 3. Weaker additive **COL4A1** (vascular-matrix pathway).
 4. All other genes are noise.
 
@@ -81,16 +81,34 @@ Paper: [Communications Biology 2021](https://www.nature.com/articles/s42003-021-
 Site: [ALIEN / GenNet](https://www.roshchupkin.org/alien/)  
 Canonical code: [ArnovanHilten/GenNet](https://github.com/ArnovanHilten/GenNet)
 
-## Local checks (this workstation)
+## Reproducibility and interpretation
+
+The data seed and model seed are separate (`SEED=7`, `MODEL_SEED=7`). The training cell rebuilds the model each time, and preprocessing uses training participants only. Deterministic operations are enabled in the notebook, but results may differ across TensorFlow versions. A fixed seed is a teaching configuration, not evidence of robustness.
+
+The teaching layer uses dense matrices with 216 allowed hidden edges and 4,704 allocated hidden weights (4,737 total trainable parameters). L1 applies only to allowed edges. The original GenNet uses sparse storage.
+
+NID ranks candidates; it does not establish interaction effects or significance. The notebook now fits an additive-only control and compares known and fitted genotype response surfaces on the logit scale. Even the additive control can score a pair highly and learn spurious non-additivity. Good prediction and a correct pair ranking do not establish recovery of the mechanism.
+
+Optional section 10 explores shuffled topology, initialization and sparsity for ALIEN benchmarking. It is outside the live hour.
+
+**Projector / connection fallback:** [completed notebook with outputs](notebooks/01_gennet_in_one_hour_completed.ipynb). Download it before the session; it includes the computed practical plots and tables. Paper figures in markdown still use online URLs.
+
+## Local checks
 
 ```bash
-source "$HOME/miniconda3/etc/profile.d/conda.sh"
-conda activate env_GenNet
-export CUDA_VISIBLE_DEVICES=-1
-cd ~/work/gennet-neurepiomics-workshop
-PYTHONPATH=src pytest tests/test_workshop.py -q
-PYTHONPATH=src pytest tests/test_workshop.py -q -m slow
+python -m pip install -r requirements.txt
+python -m ipykernel install --user --name python3
+PYTHONPATH=src python -m pytest -q
+python scripts/build_notebook.py
+python scripts/execute_notebook.py
+# Optional: refresh the completed backup or test the topology extension.
+python scripts/execute_notebook.py --output notebooks/01_gennet_in_one_hour_completed.ipynb
+python scripts/execute_notebook.py --extensions
+# If the environment disallows kernel sockets:
+python scripts/execute_notebook.py --in-process
 ```
+
+GitHub Actions regenerates and executes the self-contained notebook in a fresh kernel, in addition to testing the helper modules. See [expected outputs](docs/EXPECTED.md) for the recorded environment.
 
 ## Audience notes
 

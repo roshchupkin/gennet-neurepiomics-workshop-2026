@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import ast
 from pathlib import Path
 
 NB_PATH = Path(__file__).resolve().parents[1] / "notebooks" / "01_gennet_in_one_hour.ipynb"
@@ -17,6 +18,24 @@ FIG = (
 )
 
 CELLS = []
+
+
+def shared_code(filename: str, *names: str) -> str:
+    """Embed checked-in helpers so the Colab stays self-contained and in sync."""
+    source = (NB_PATH.parents[1] / "src" / "gennet_workshop" / filename).read_text()
+    tree = ast.parse(source)
+    snippets = []
+    for name in names:
+        node = next(node for node in tree.body if getattr(node, "name", None) == name)
+        snippet = ast.get_source_segment(source, node)
+        snippet = snippet.replace("cohort: SimulatedCohort", "bundle")
+        snippet = snippet.replace("cohort.n_snps", 'bundle["X"].shape[1]')
+        snippet = snippet.replace("cohort.split()", "split(bundle)")
+        for field in ("snp_gene_mask", "gene_pathway_mask", "snp_to_gene", "gene_to_pathway",
+                      "snp_names", "gene_names", "pathway_names", "topology"):
+            snippet = snippet.replace("cohort." + field, 'bundle["' + field + '"]')
+        snippets.append(snippet)
+    return "\n\n".join(snippets)
 
 
 def md(source: str, metadata: dict | None = None) -> None:
@@ -79,6 +98,8 @@ code(
     """import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
+from typing import Tuple, Dict
+import sklearn
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -89,13 +110,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 tf.get_logger().setLevel("ERROR")
-print("tensorflow", tf.__version__)"""
+tf.config.experimental.enable_op_determinism()
+print("tensorflow", tf.__version__, "scikit-learn", sklearn.__version__)"""
 )
 
 md(
     f"""## 1. What GenNet is configuring
 
-A fully connected net would let every SNP talk to every hidden unit. With a million variants that is tens of billions of weights — and none of them have a gene name. GenNet **forbids** unbiological edges. You supply a **topology**: each row is one allowed path (usually Annovar SNP→gene, then KEGG or GTEx gene→pathway).
+A fully connected net would let every SNP talk to every hidden unit. With a million variants that is tens of billions of weights — and none of them have a gene name. GenNet restricts edges to the chosen biological prior. You supply a **topology**: each row is one allowed path (usually Annovar SNP→gene, then KEGG or GTEx gene→pathway).
 
 The CLI wants three files. That is the whole input.
 
@@ -140,9 +162,16 @@ code(
 N_SNPS_PER_GENE = 8
 N_SAMPLES = 1600
 SEED = 7
+MODEL_SEED = 7
 
 
-def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=SEED):
+def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=SEED, interaction_strength=1.15):
+    if not isinstance(n_snps_per_gene, (int, np.integer)) or n_snps_per_gene < 2:
+        raise ValueError("n_snps_per_gene must be an integer >= 2")
+    if not isinstance(n_samples, (int, np.integer)) or n_samples < 20:
+        raise ValueError("n_samples must be an integer >= 20")
+    if not np.isfinite(interaction_strength):
+        raise ValueError("interaction_strength must be finite")
     rng = np.random.default_rng(seed)
     gene_names, gene_to_pathway = [], {}
     pathway_names = list(PATHWAYS)
@@ -190,13 +219,13 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
     logit = (
         1.55 * z(X[:, a])
         + 0.95 * z(X[:, b])
-        + 1.15 * z(X[:, a]) * z(X[:, b])
+        + interaction_strength * z(X[:, a]) * z(X[:, b])
         + 0.55 * z(X[:, col4_idx].mean(axis=1))
     )
     logit = logit - logit.mean()
     y = rng.binomial(1, 1 / (1 + np.exp(-logit))).astype(np.float32)
 
-    order = rng.permutation(n_samples)
+    order = np.random.default_rng(seed + 1).permutation(n_samples)
     n_train, n_val = int(0.70 * n_samples), int(0.15 * n_samples)
     sets = np.empty(n_samples, dtype=np.int8)
     sets[order[:n_train]] = 1
@@ -221,6 +250,8 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
         "topology": topology, "subjects": subjects,
         "snp_gene_mask": snp_gene_mask, "gene_pathway_mask": gene_pathway_mask,
         "interaction": (snp_names[a], snp_names[b]),
+        "interaction_indices": (a, b),
+        "interaction_strength": float(interaction_strength),
     }
 
 
@@ -253,9 +284,11 @@ display(bundle["subjects"].head())"""
 )
 
 md(
-    """### Why the mask matters (parameter count)
+    """### Why the mask matters (allowed connections)
 
-A dense layer from 192 SNPs to 24 genes would have 192×24 = 4,608 weights. The biological mask keeps **one gene per SNP** → 192 weights. At UK Biobank scale the gap is millions vs billions. That is why GenNet can train on exomes on a single GPU in the paper.
+A dense SNP-to-gene map has 192×24 = 4,608 connections. The mask permits 192 of them. Including gene-to-pathway edges, there are **216 allowed hidden connections**.
+
+This teaching layer still allocates dense weight matrices: **4,704 hidden weights**, plus biases and the output layer. The model summary therefore reports 4,737 trainable parameters. Masked-out weights cannot affect predictions and receive no L1 penalty. The production GenNet layer stores sparse edges; this dense replica is suitable for the small toy only.
 """
 )
 
@@ -266,7 +299,7 @@ dense = n_snps * n_genes + n_genes * n_pw
 sparse = int(bundle["snp_gene_mask"].sum() + bundle["gene_pathway_mask"].sum())
 fig, ax = plt.subplots(figsize=(5.2, 3.2))
 ax.bar(["Dense SNP→gene→pw", "GenNet mask"], [dense, sparse], color=["#9eb0c3", "#1f6f8b"])
-ax.set_ylabel("Learnable edges in the two hidden maps")
+ax.set_ylabel("Allowed edges in the two hidden maps")
 ax.set_title("Biology prunes the wires")
 for i, v in enumerate([dense, sparse]):
     ax.text(i, v, f" {v:,}", va="bottom")
@@ -285,7 +318,7 @@ The layer below is the same **scientific** object at this scale:
 y = \\mathrm{{act}}\\bigl(X\\,(W \\odot M) + b\\bigr)
 \\]
 
-A 1 in \\(M\\) is an allowed biological edge. **L1 on \\(W\\)** is a polygenicity knob: a larger penalty and the net uses fewer genes, like a lasso.
+A 1 in \\(M\\) is an allowed biological edge. **L1 on \\(W\\)** encourages small or sparse allowed-edge weights. It does not directly estimate polygenicity. Inputs are standardized using **training participants only**.
 
 ![Planted causal SNPs get thick weights]({FIG}/paper_fig2a.png)
 
@@ -294,82 +327,40 @@ A 1 in \\(M\\) is an allowed biological edge. **L1 on \\(W\\)** is a polygenicit
 )
 
 code(
-    """class DirectedLayer(tf.keras.layers.Layer):
-    def __init__(self, mask, activation="tanh", l1=1e-3, **kwargs):
-        super().__init__(**kwargs)
-        self.mask_np = np.asarray(mask, dtype=np.float32)
-        self.activation = tf.keras.activations.get(activation)
-        self.l1 = float(l1)
-
-    def build(self, input_shape):
-        n_in, n_out = self.mask_np.shape
-        # Keras 3: add_weight's first positional arg is shape, not name.
-        self.mask = tf.constant(self.mask_np, dtype="float32")
-        self.kernel = self.add_weight(
-            name="kernel",
-            shape=(n_in, n_out),
-            initializer="glorot_uniform",
-            regularizer=tf.keras.regularizers.l1(self.l1),
-        )
-        self.bias = self.add_weight(
-            name="bias",
-            shape=(n_out,),
-            initializer="zeros",
-        )
-        super().build(input_shape)
-
-    def call(self, x):
-        return self.activation(tf.matmul(x, self.kernel * self.mask) + self.bias)
-
-    def directed_weights(self):
-        w = self.kernel.numpy() if hasattr(self.kernel, "numpy") else np.array(self.kernel)
-        return np.asarray(w) * self.mask_np
-
-
-def build_gennet(bundle, l1=5e-4):
-    n_snps = bundle["X"].shape[1]
-    inp = tf.keras.Input((n_snps,), name="genotype")
-    genes = DirectedLayer(bundle["snp_gene_mask"], l1=l1, name="gene_layer")(inp)
-    pathways = DirectedLayer(bundle["gene_pathway_mask"], l1=l1, name="pathway_layer")(genes)
-    out = tf.keras.layers.Dense(
-        1, activation="sigmoid",
-        kernel_regularizer=tf.keras.regularizers.l1(l1),
-        name="output",
-    )(pathways)
-    model = tf.keras.Model(inp, out, name="mini_gennet")
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(1e-3),
-        loss="binary_crossentropy",
-        metrics=[tf.keras.metrics.AUC(name="auc")],
-    )
-    return model
-
-
-model = build_gennet(bundle)
-model.summary()"""
+    shared_code("model.py", "DirectedLayer", "build_gennet")
+    + '\n\nmodel = build_gennet(bundle, seed=MODEL_SEED)\nmodel.summary()'
 )
 
 md(
     """## 4. Train (CPU, about 30–60 seconds)
 
-Early stopping watches validation AUC. If this cell is slow, wait; do not switch to GPU.
+Early stopping watches validation AUC. This cell **rebuilds** the model using `MODEL_SEED` before every fit. The data seed and model seed are separate. Run all downstream cells after retraining so tables reflect the new model.
+
+If this cell is slow, wait; GPU is not needed. Different TensorFlow versions may still produce slightly different results.
 
 On a highly heritable, low-polygenicity trait the paper's simulations (Fig. 2b–c) show AUC rising with sample size. We are in that regime on purpose: 1,600 people and a planted gene. Real WMH in CHARGE will not look this clean.
 """
 )
 
 code(
-    """X_tr, y_tr, X_va, y_va, X_te, y_te = split(bundle)
-history = model.fit(
-    X_tr, y_tr,
-    validation_data=(X_va, y_va),
-    epochs=40,
-    batch_size=64,
-    verbose=1,
-    callbacks=[tf.keras.callbacks.EarlyStopping(
-        monitor="val_auc", mode="max", patience=8, restore_best_weights=True
-    )],
-)
+    """def reset_and_train(bundle, seed=MODEL_SEED, epochs=40, l1=5e-4):
+    tf.keras.backend.clear_session()
+    model = build_gennet(bundle, l1=l1, seed=seed)
+    X_tr, y_tr, X_va, y_va, _, _ = split(bundle)
+    history = model.fit(
+        X_tr, y_tr, validation_data=(X_va, y_va), epochs=epochs, batch_size=64,
+        verbose=0,
+        callbacks=[tf.keras.callbacks.EarlyStopping(
+            monitor="val_auc", mode="max", patience=8, restore_best_weights=True
+        )],
+    )
+    return model, history
+
+
+X_tr, y_tr, X_va, y_va, X_te, y_te = split(bundle)
+model, history = reset_and_train(bundle)
+print(f"Trained {len(history.history['auc'])} epochs with model seed {MODEL_SEED}")
+# Early stopping uses validation only; report test AUC after fitting.
 
 def auc(m, X, y):
     return float(roc_auc_score(y, m.predict(X, verbose=0).ravel()))
@@ -388,21 +379,17 @@ plt.show()"""
 md(
     """## 5. Prediction: GenNet vs L1 logistic regression
 
-Lasso sees 192 SNPs with **no gene names**. It can pick `APOE_s0` but it cannot say "APOE". GenNet is forced to pool SNPs inside genes, then genes inside pathways.
+L1 logistic regression learns additive SNP effects without using the gene/pathway mask during training. Its coefficients can still be annotated and summarized by gene afterwards. GenNet uses that biological structure **during learning**, with nonlinear hidden layers.
 
 In van Hilten et al. 2021 (Sweden schizophrenia exome), GenNet test AUC was **0.74** vs lasso **0.65**. That is a real, modest gain — not "deep learning beat GWAS." The paper used **exome only**, so it was not a bake-off against a genome-wide PRS.
 
-On today's planted trait both methods should beat chance. They answer different questions.
+Both methods should beat chance. This is a teaching comparison with a fixed logistic penalty, not a tuned benchmark or evidence that one method generally wins.
 """
 )
 
 code(
-    """lasso = Pipeline([
-    ("scale", StandardScaler()),
-    ("clf", LogisticRegression(penalty="l1", solver="saga", C=0.2, max_iter=4000, random_state=0)),
-])
-lasso.fit(X_tr, y_tr)
-lasso_auc = float(roc_auc_score(y_te, lasso.predict_proba(X_te)[:, 1]))
+    shared_code("interpret.py", "fit_lasso")
+    + """\n\nlasso, lasso_auc, _ = fit_lasso(bundle)
 print(f"test AUC   GenNet={gennet_auc['test']:.3f}   L1 logistic={lasso_auc:.3f}")
 
 coef = pd.DataFrame({
@@ -415,13 +402,13 @@ display(coef.head(10))"""
 )
 
 md(
-    """## 6. Explainability: weight paths to genes and pathways
+    f"""## 6. Explainability: weight paths to genes and pathways
 
 GenNet importance is the product of weights along each allowed path:
 
 `mean |SNP→gene| × |gene→pathway| × |pathway→output|`
 
-That is **effect size along a named path**, not a p-value and not a GWAS hit. The same idea is `python GenNet.py interpret -type get_weight_scores`. Eye and hair colour in the paper recovered *HERC2* / *OCA2* (sanity check). Schizophrenia looks polygenic — many genes light up.
+This is a **weight-based importance score**, not an effect size or a p-value. It omits activation derivatives and depends on the model parameterization. Gene importance averages SNP path scores; the pathway table below is a downstream-weight summary that omits SNP-to-gene weights. The same idea is `python GenNet.py interpret -type get_weight_scores`. Eye and hair colour in the paper recovered *HERC2* / *OCA2* (sanity check). Schizophrenia looks polygenic — many genes light up.
 
 ![Schizophrenia gene Manhattan]({FIG}/paper_fig2d.png)
 
@@ -430,8 +417,8 @@ That is **effect size along a named path**, not a p-value and not a GWAS hit. Th
 )
 
 code(
-    """w_sg = model.get_layer("gene_layer").directed_weights()
-w_gp = model.get_layer("pathway_layer").directed_weights()
+    """w_sg = model.get_layer("gene_layer").get_directed_weights()
+w_gp = model.get_layer("pathway_layer").get_directed_weights()
 w_out = model.get_layer("output").get_weights()[0].reshape(-1)
 
 rows = []
@@ -484,7 +471,9 @@ for s, name in enumerate(bundle["snp_names"]):
         "pos": s, "raw_importance": raw,
     })
 snp_imp = pd.DataFrame(snp_rows)
-snp_imp["relative_importance"] = snp_imp["raw_importance"] / snp_imp["raw_importance"].max()
+snp_imp["relative_importance"] = snp_imp["raw_importance"] / (float(snp_imp["raw_importance"].max()) or 1.0)
+snp_imp = snp_imp.sort_values(["chr", "pos"]).reset_index(drop=True)
+snp_imp["pos"] = np.arange(len(snp_imp))
 display(snp_imp.sort_values("raw_importance", ascending=False).head(8))
 
 fig, ax = plt.subplots(figsize=(9, 3.6))
@@ -492,7 +481,7 @@ colors = ["#7dcfe2", "#4b78b5", "darkgrey", "dimgray"]
 for i, chrom in enumerate(sorted(snp_imp["chr"].unique())):
     sub = snp_imp[snp_imp["chr"] == chrom]
     ax.scatter(sub["pos"], sub["relative_importance"], s=18, c=colors[i % 4], label=f"chr {chrom}" if chrom in (19, 13) else None)
-ax.set_xlabel("SNP index (grouped by gene / chromosome)")
+ax.set_xlabel("SNP index ordered by toy chromosome (not genomic distance)")
 ax.set_ylabel("Relative importance")
 ax.set_title("Relative importance of all SNPs (this toy)")
 ax.set_ylim(0, 1.25)
@@ -504,13 +493,15 @@ plt.show()"""
 )
 
 md(
-    """## 7. Interaction: a readable NID
+    """## 7. Interaction candidates: a readable NID
 
-A linear PRS **adds** SNP effects. Biology often **multiplies** them: two modest SNPs in the same gene can matter together and barely matter apart. Lasso tends to keep the stronger variant and shrink the partner. A gene node that sees both can learn a non-additive pattern — that is the point of the directed hidden layer.
+An additive predictor cannot represent the explicit SNP-product term we plant on the **logit scale**. A nonlinear gene node can learn non-additivity. Strong main effects, however, can also give a SNP pair a high weight-based score.
 
 [NID](https://arxiv.org/abs/1705.04977) (Tsang et al.) looks for features that share a hidden unit with large incoming weights. GenNet applies that **inside each gene**:
 
 `strength(i, j) = min(|w_i|, |w_j|) × |w_gene→pathway| × |w_pathway→out|`
+
+**This simplified score ranks candidates; it does not prove epistasis or supply a significance test.** It ignores activation behavior and can be positive even for an additive-logit network. Our toy searches within genes only; cross-gene interactions are outside this table.
 
 The A-to-Z Colab never runs this. Full CLI: `python GenNet.py interpret -type NID`. **DFIM** (perturb SNP A, watch SNP B's importance) and **PathExplain** (Expected Hessian) are the slower cousins — cluster jobs, not this room.
 """
@@ -535,25 +526,68 @@ ax.annotate("", xy=(8.2, 1.45), xytext=(7.6, 1.45), arrowprops=dict(arrowstyle="
 ax.set_title("NID: pairs that share a gene node with large incoming weights")
 plt.show()
 
-nid_rows = []
-for g, gene in enumerate(bundle["gene_names"]):
-    snps = np.where(bundle["snp_to_gene"] == g)[0]
-    p = int(bundle["gene_to_pathway"][g])
-    later = abs(w_gp[g, p]) * abs(w_out[p])
-    mags = np.abs(w_sg[snps, g])
-    order = np.argsort(-mags)[:8]
-    for ii in range(len(order)):
-        for jj in range(ii + 1, len(order)):
-            i, j = int(snps[order[ii]]), int(snps[order[jj]])
-            nid_rows.append({
-                "gene": gene,
-                "snp_i": bundle["snp_names"][i],
-                "snp_j": bundle["snp_names"][j],
-                "strength": float(min(mags[order[ii]], mags[order[jj]]) * later),
-            })
-nid = pd.DataFrame(nid_rows).sort_values("strength", ascending=False).reset_index(drop=True)
+"""
+    + "\n\n" + shared_code("interpret.py", "_layer", "directed_weights", "nid_pairwise")
+    + """\n\nnid = nid_pairwise(model, bundle)
 display(nid.head(12))
 print("Planted pair (look after you have stared at the table):", bundle["interaction"])"""
+)
+
+md(
+    """### Check non-additivity on the logit scale
+
+A high NID score is a reason to inspect a pair. Fit an **additive-only control** with the same genotypes, split and model seed, but with the simulated interaction coefficient set to zero.
+
+For each fitted model, vary the candidate dosages over 0/1/2 while holding the other SNPs at 32 fixed test-participant backgrounds. Average the model **logit** over those backgrounds. Adjacent mixed differences quantify departure from additivity on this chosen scale:
+
+`Δ = f(a+1,b+1) - f(a+1,b) - f(a,b+1) + f(a,b)`
+
+The known additive mechanism has zero mixed differences. A fitted neural network may still invent non-additivity through finite-sample error or its architecture; the control makes that limitation visible. With only one unit per gene, this tiny model also cannot represent arbitrary interaction surfaces. The fitted control can show **more** non-additivity than the interaction-trained model: good prediction and a correct candidate ranking do not establish recovery of the mechanism.
+
+Neither this probe nor NID is a biological effect estimate or a significance test. In real LD data, arbitrary dosage combinations may be unsupported and require a different evaluation design.
+"""
+)
+
+code(
+    shared_code("interpret.py", "mixed_difference", "pair_logit_surface")
+    + """\n\nadditive_bundle = simulate_cohort(interaction_strength=0.0)
+assert np.array_equal(bundle["X"], additive_bundle["X"])
+assert np.array_equal(bundle["sets"], additive_bundle["sets"])
+control_model, control_history = reset_and_train(additive_bundle)
+control_nid = nid_pairwise(control_model, additive_bundle)
+print("Additive-only control: top NID candidates (no interaction was planted)")
+display(control_nid.head(3))
+
+a, b = bundle["interaction_indices"]
+reference = X_te[:32]
+main_surface = pair_logit_surface(model, reference, (a, b))
+control_surface = pair_logit_surface(control_model, reference, (a, b))
+za = (np.arange(3) - bundle["X"][:, a].mean()) / (bundle["X"][:, a].std() + 1e-6)
+zb = (np.arange(3) - bundle["X"][:, b].mean()) / (bundle["X"][:, b].std() + 1e-6)
+oracle_additive = 1.55 * za[:, None] + 0.95 * zb[None, :]
+oracle_interacting = oracle_additive + bundle["interaction_strength"] * za[:, None] * zb[None, :]
+surfaces = [oracle_additive, oracle_interacting, control_surface, main_surface]
+titles = ["Known additive mechanism", "Known interaction mechanism",
+          "Fitted additive-only control", "Fitted interaction model"]
+centered = [surface - surface.mean() for surface in surfaces]
+limit = max(float(np.abs(surface).max()) for surface in centered)
+fig, axes = plt.subplots(2, 2, figsize=(8, 6), constrained_layout=True)
+for ax, title, surface in zip(axes.ravel(), titles, centered):
+    im = ax.imshow(surface, origin="lower", cmap="RdBu_r", vmin=-limit, vmax=limit)
+    ax.set_xticks([0, 1, 2]); ax.set_yticks([0, 1, 2])
+    ax.set_xlabel(bundle["snp_names"][b] + " dosage")
+    ax.set_ylabel(bundle["snp_names"][a] + " dosage")
+    ax.set_title(title)
+fig.colorbar(im, ax=list(axes.ravel()), label="Centered logit")
+plt.show()
+interaction_checks = pd.DataFrame({
+    "mechanism / model": titles,
+    "mean absolute mixed difference": [float(np.abs(mixed_difference(surface)).mean()) for surface in surfaces],
+})
+display(interaction_checks)
+assert np.allclose(mixed_difference(oracle_additive), 0)
+print("Inspect the fitted control before interpreting the main model's non-additivity.")
+"""
 )
 
 md(
@@ -566,9 +600,9 @@ The simulator planted (do not tell the room until they have ranked genes):
 3. Weaker additive **COL4A1**.
 4. Noise everywhere else.
 
-If APOE is absent from the top 5, re-run the training cell. The seed is fixed, so a second run should look similar.
+Expect APOE near the top for this fixed teaching configuration. COL4A1 is weaker and its rank may vary. If recovery fails, keep the result visible and discuss optimization or use the completed backup notebook. Re-running with the same seed restarts the same experiment; it is not a way to select a favorable answer.
 
-This is Fig. 2a as an exercise: on a trait whose signal **really does** sit in annotated genes, a directed net can name the gene and surface the pair. That is not a claim about WMH in CHARGE. It is why you might try GenNet on *your* endophenotype at home.
+This is Fig. 2a as an exercise: on a trait whose signal **really does** sit in annotated genes, a directed net can recover gene importance and propose the pair for further checks. That is not a claim about WMH in CHARGE. It is why you might try GenNet on *your* endophenotype at home.
 """
 )
 
@@ -595,17 +629,17 @@ The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/Gen
 - You have a reason to believe signal sits in exons/genes/pathways (endophenotypes, Mendelian-looking genes, candidate pathways).
 - You can write or generate a topology (Annovar, KEGG, GTEx, your own CSV).
 
-### When it is the wrong tool
+### What requires further evaluation
 
-- You only need a **risk ranking** → modern PRS (PRS-CS, LDpred, clumped + LDpred).
-- The trait is highly polygenic with most signal **non-coding**. Annotation-only SNPs and hierarchical pooling will dilute that.
-- You need a p-value. Weight-path importance is an effect along a path, not a significance test.
+- For risk ranking, compare against suitable PRS methods and other prediction baselines on held-out data.
+- For highly polygenic or non-coding traits, evaluate variant coverage and the chosen regulatory mapping. This toy does not establish performance in that setting.
+- For statistical inference, use a validated testing procedure. Weight-path importance and this NID score do not supply p-values.
 
 ### Checklist on a cluster or laptop (conda `env_GenNet`, Python 3.10, TF 2.11)
 
 1. Clone https://github.com/ArnovanHilten/GenNet and `pip install -r requirements_GenNet.txt`.
 2. PLINK or VCF → `python GenNet.py convert -g ./plink/ -study_name mystudy -step all`.
-3. Build `subjects.csv`: `patient_id`, `labels`, `genotype_row`, `set` (1/2/3). Put close relatives in train, as in the paper.
+3. Build `subjects.csv`: `patient_id`, `labels`, `genotype_row`, `set` (1/2/3). Keep related participants together; prevent relatives from straddling train, validation and test sets. State the kinship and cohort split policy explicitly.
 4. Topology: Annovar gene layer, optional KEGG. Covariates (age, sex, PCs) exist in the CLI (`example_regression_cov`).
 5. Train, plot, interpret:
 
@@ -625,6 +659,36 @@ Bundled toys: `examples/example_classification/` (SNP→gene), `example_regressi
 """
 )
 
+md(
+    """## 10. Optional ALIEN experiments
+
+The live exercise ends above. For a longer practical, change one factor at a time:
+
+1. **Topology:** run the optional cell below. It shuffles SNP-to-gene assignments while preserving the number of allowed edges. Compare validation/test AUC; one realization does not establish that biology always helps.
+2. **Initialization:** repeat `reset_and_train(bundle, seed=...)` with several model seeds and compare gene ranks. Preserve every run, including failures. A fixed seed makes a workshop repeatable; multiple seeds assess robustness.
+3. **Sparsity:** vary `l1` using validation results and inspect prediction versus gene ranking. Keep test data out of configuration selection.
+
+These are known-truth benchmark exercises for ALIEN, not new WMH findings. This example does not test LD, ancestry transfer, covariates, multiomics or federation.
+"""
+)
+
+code(
+    """RUN_TOPOLOGY_EXPERIMENT = False  # Optional: change to True and run this cell.
+if RUN_TOPOLOGY_EXPERIMENT:
+    shuffled_bundle = dict(bundle)
+    permutation = np.random.default_rng(17).permutation(bundle["X"].shape[1])
+    shuffled_bundle["snp_gene_mask"] = bundle["snp_gene_mask"][permutation]
+    shuffled_model, _ = reset_and_train(shuffled_bundle)
+    print("Correct topology AUC:", gennet_auc)
+    print("Shuffled topology AUC:", {
+        "val": auc(shuffled_model, X_va, y_va), "test": auc(shuffled_model, X_te, y_te)
+    })
+    print("Compare prediction here; the shuffled gene labels are no longer biological annotations.")
+else:
+    print("Optional topology experiment skipped; set RUN_TOPOLOGY_EXPERIMENT=True to explore.")
+"""
+)
+
 nb = {
     "nbformat": 4,
     "nbformat_minor": 5,
@@ -640,7 +704,8 @@ nb = {
     "cells": CELLS,
 }
 
-for cell in nb["cells"]:
+for i, cell in enumerate(nb["cells"]):
+    cell["id"] = f"workshop-{i:02d}"
     if cell["source"] and cell["source"][-1].endswith("\n"):
         cell["source"][-1] = cell["source"][-1][:-1] if cell["source"][-1] != "\n" else cell["source"][-1]
 

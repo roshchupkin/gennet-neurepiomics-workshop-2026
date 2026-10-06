@@ -144,7 +144,7 @@
       <h2>A Manhattan plot, from weights not p-values.</h2>
       <ul>
         <li>Same picture CHARGE already reads — different quantity.</li>
-        <li>Importance ≈ effect along the allowed path, not a significance test.</li>
+        <li>Importance is a weight-based score; it is not an effect size or significance test.</li>
         <li>Schizophrenia is polygenic: many genes light up. Eye colour does not look like this.</li>
       </ul>
     </div>
@@ -183,13 +183,13 @@
 
 <section class="slide">
   <p class="kicker">Why bother with interaction</p>
-  <h2>A linear PRS adds SNP effects. Biology often multiplies them.</h2>
+  <h2>Check whether a predictor learned non-additivity.</h2>
   <ul>
     <li>Two modest SNPs in the same gene can matter together and barely matter apart.</li>
-    <li>Lasso will pick the stronger variant and shrink the partner.</li>
+    <li>An additive predictor cannot represent the explicit SNP-product term on the logit scale.</li>
     <li>A gene node that sees <em>both</em> SNPs can learn a non-additive pattern — that is the point of the directed hidden layer.</li>
   </ul>
-  <p class="muted">Today we plant APOE_s0 × APOE_s1. If NID surfaces that pair, the idea worked.</p>
+  <p class="muted">Today we plant APOE_s0 × APOE_s1. NID proposes the pair; the additive-only control shows why the ranking alone is insufficient.</p>
 </section>
 
 <section class="slide">
@@ -243,10 +243,10 @@
 
 <section class="slide">
   <p class="kicker">Be honest</p>
-  <h2>Where GenNet should win — and lose</h2>
+  <h2>What this toy can and cannot establish</h2>
   <ul>
-    <li><strong>Lose</strong> on a typical highly polygenic trait vs a modern PRS (annotation-only SNPs, no LD clumping, hierarchical pooling).</li>
-    <li><strong>Win</strong> when signal is concentrated in annotated genes/pathways, or when the question is interaction inside those genes.</li>
+    <li>For prediction, compare against suitable PRS methods and other baselines on held-out participants.</li>
+    <li>For interpretation, evaluate topology, variant coverage, rank stability and interaction controls.</li>
     <li>The 2021 schizophrenia gain over lasso was real and modest. It is not “deep learning beat GWAS.”</li>
   </ul>
 </section>
@@ -257,7 +257,7 @@
   <ul>
     <li>1,600 people × 192 SNPs × 24 named genes × 4 pathways.</li>
     <li>Planted: strong <strong>APOE</strong>, weaker <strong>COL4A1</strong>, interaction <strong>APOE_s0 × APOE_s1</strong>.</li>
-    <li>You will check AUC vs lasso, a gene ranking, a Manhattan, and an NID table.</li>
+    <li>You will check AUC vs lasso, a gene ranking, a Manhattan, NID candidates, and an additive-only control.</li>
   </ul>
   <p class="muted">Gene names are a story scaffold. Do not quote them as WMH biology.</p>
 </section>
@@ -268,7 +268,7 @@
   <p><a class="btn" href="https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb">Launch the notebook</a></p>
   <ul>
     <li><code>File → Save a copy in Drive</code> first.</li>
-    <li>Inspect topology → train (~40 s) → AUC vs lasso → genes → Manhattan → NID.</li>
+    <li>Inspect topology → train (~40 s) → AUC vs lasso → genes → Manhattan → NID candidates → control.</li>
     <li>Homework: the original A-to-Z Colab on a machine with the GenNet conda env.</li>
   </ul>
 </section>
