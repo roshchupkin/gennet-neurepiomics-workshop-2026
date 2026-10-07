@@ -1,6 +1,6 @@
 # Figure sources
 
-All images under `docs/figures/` support the workshop notebook and explain the published method. They are **not** a CHARGE analysis.
+All images under `docs/figures/` support the workshop notebook and explain the published method. The introductory presentation is [`GenNet_intro.pdf`](GenNet_intro.pdf). These figures are not a CHARGE analysis.
 
 | File | Source | License |
 |------|--------|---------|

@@ -4,7 +4,7 @@
 
 [Open in Colab](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb)
 
-Stock Colab CPU. No `pip` of GenNet.
+Open the notebook in Colab, save a copy in Drive, set the runtime to CPU, and run all cells.
 
 | Step | What to look at |
 |------|-----------------|
@@ -62,7 +62,7 @@ Each row is one allowed path. You do not include the final phenotype node.
 
 ## Links
 
+- Slides: [GenNet introduction (PDF)](GenNet_intro.pdf)
 - Paper: https://www.nature.com/articles/s42003-021-02622-z
 - A-to-Z Colab: https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb
-- ALIEN: https://www.roshchupkin.org/alien/
 - Demo of the basic idea: https://tinyurl.com/y8hh8rul

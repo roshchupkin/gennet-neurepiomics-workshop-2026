@@ -15,7 +15,7 @@ After 60 minutes a participant should be able to:
 
 ## Before the session
 
-- [ ] Open your own introductory presentation and the practical notebook.
+- [ ] Open the introductory slides: [`docs/GenNet_intro.pdf`](GenNet_intro.pdf). The PowerPoint stays local and is not in the repository.
 - [ ] Open https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb and **Run all** once on Colab CPU. Keep that tab as the projector backup.
 - [ ] Download the completed backup notebook for connection failures.
 - [ ] Put that Colab link on a slide and in the chat (the README badge is the same URL).
@@ -93,4 +93,23 @@ You are one of four faculty in Genetic and Multiomic Analyses. Keep this module 
 
 - Not a contribution back to `ArnovanHilten/GenNet` (the ComPopBio fork stays independent).
 - Not 1000 Genomes. Real public genotypes are too large and too messy for this slot.
-- Not ALIEN software. The website is the research map; GenNet is the code that exists.
+- The student README does not explain [ALIEN](https://www.roshchupkin.org/alien/). If someone asks: ALIEN is the broader research programme; this hour runs the GenNet practical.
+
+Comparison with the original A-to-Z Colab, including why this hour uses a simulated cohort: [`VS_A_TO_Z.md`](VS_A_TO_Z.md).
+
+## Local checks
+
+```bash
+python -m pip install -r requirements.txt
+python -m ipykernel install --user --name python3
+PYTHONPATH=src python -m pytest -q
+python scripts/build_notebook.py
+python scripts/execute_notebook.py
+# Optional: refresh the completed backup or test the topology extension.
+python scripts/execute_notebook.py --output notebooks/01_gennet_in_one_hour_completed.ipynb
+python scripts/execute_notebook.py --extensions
+# If the environment disallows kernel sockets:
+python scripts/execute_notebook.py --in-process
+```
+
+The data seed and model seed are separate (`SEED=7`, `MODEL_SEED=7`). The training cell rebuilds the model each time, and preprocessing uses training participants only. See [expected outputs](EXPECTED.md).

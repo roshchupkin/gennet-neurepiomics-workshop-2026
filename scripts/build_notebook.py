@@ -77,20 +77,20 @@ Neuroepidemiology already **ranks people** well (GWAS, PRS-CS, LDpred). Naming *
 
 *Fig. 1 from van Hilten et al., Communications Biology 2021 (CC BY 4.0). SNPs connect only to their genes; genes connect only to pathways. You draw those wires; the net may only use them.*
 
-**Live hour:** `File → Save a copy in Drive` → Runtime = **CPU** → `Runtime → Run all`. GPU is not needed. Training is about 40 seconds. You can skim the theory while it runs.
+**During the session:** `File → Save a copy in Drive` → set the runtime to **CPU** → `Runtime → Run all`. A GPU is not needed. Training takes about a minute. Read the text while it runs.
 
-**Take home:** the theory, paper figures, and section 9 (real CLI) are the path to your own PLINK/VCF. This notebook is a teaching replica, not UK Biobank.
+**After the session:** section 9 shows how to run the same steps on your own PLINK or VCF files. This notebook uses a small simulated cohort so the practical fits in one hour.
 
-It is **not** a GWAS and **not** a WMH discovery. Gene names (APOE, COL4A1, …) are a story scaffold so the topology looks like a CHARGE-style SVD/AD endophenotype.
+The phenotype is simulated. Gene names (APOE, COL4A1, and the others) are there so the example is easy to follow.
 
-Links: [paper](https://www.nature.com/articles/s42003-021-02622-z) · [GitHub](https://github.com/ArnovanHilten/GenNet) · [ALIEN](https://www.roshchupkin.org/alien/) · [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
+Links: [slides](https://github.com/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/docs/GenNet_intro.pdf) · [paper](https://www.nature.com/articles/s42003-021-02622-z) · [GenNet code](https://github.com/ArnovanHilten/GenNet) · [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
 """
 )
 
 md(
     """## 0. Imports
 
-Stock Colab already has TensorFlow, scikit-learn, pandas, and matplotlib. No GenNet pip install (the real CLI pins TensorFlow 2.11 and often fails here).
+Colab already includes the libraries this notebook needs. Run the next cell.
 """
 )
 
@@ -286,9 +286,7 @@ display(bundle["subjects"].head())"""
 md(
     """### Why the mask matters (allowed connections)
 
-A dense SNP-to-gene map has 192×24 = 4,608 connections. The mask permits 192 of them. Including gene-to-pathway edges, there are **216 allowed hidden connections**.
-
-This teaching layer still allocates dense weight matrices: **4,704 hidden weights**, plus biases and the output layer. The model summary therefore reports 4,737 trainable parameters. Masked-out weights cannot affect predictions and receive no L1 penalty. The production GenNet layer stores sparse edges; this dense replica is suitable for the small toy only.
+A dense SNP-to-gene map has 192×24 = 4,608 connections. The mask permits 192 of them. Including gene-to-pathway edges, there are **216 allowed hidden connections**. Only those connections are trained.
 """
 )
 
@@ -308,11 +306,9 @@ print(f"sparsity: {sparse}/{dense} = {sparse/dense:.1%} of a dense net")"""
 )
 
 md(
-    f"""## 3. A teaching replica of the directed layer
+    f"""## 3. How the layer uses the mask
 
-Published GenNet uses `LocallyDirected1D`: a sparse mask times a weight matrix. That class is tied to TensorFlow 2.11 internals, which is why a full install is a bad idea in a 60-minute Colab.
-
-The layer below is the same **scientific** object at this scale:
+Each allowed connection has a weight. Connections that are not in the topology stay at zero.
 
 \\[
 y = \\mathrm{{act}}\\bigl(X\\,(W \\odot M) + b\\bigr)
@@ -593,16 +589,16 @@ print("Inspect the fitted control before interpreting the main model's non-addit
 md(
     """## 8. What you should have recovered
 
-The simulator planted (do not tell the room until they have ranked genes):
+Compare your tables with the three signals built into the simulation:
 
 1. Strong additive **APOE** (`APOE_s0`, `APOE_s1`).
 2. A **multiplicative interaction** of those two SNPs (NID target).
 3. Weaker additive **COL4A1**.
 4. Noise everywhere else.
 
-Expect APOE near the top for this fixed teaching configuration. COL4A1 is weaker and its rank may vary. If recovery fails, keep the result visible and discuss optimization or use the completed backup notebook. Re-running with the same seed restarts the same experiment; it is not a way to select a favorable answer.
+APOE should appear near the top. COL4A1 is weaker, so its rank can move. If your ranking looks different, keep the result and reread the cells above. Running the training cell again with the same seed repeats the same experiment.
 
-This is Fig. 2a as an exercise: on a trait whose signal **really does** sit in annotated genes, a directed net can recover gene importance and propose the pair for further checks. That is not a claim about WMH in CHARGE. It is why you might try GenNet on *your* endophenotype at home.
+When the signal sits in annotated genes, this network can recover gene importance and propose a variant pair to check further. The names in this notebook are an example for the session.
 """
 )
 
@@ -621,7 +617,7 @@ print("Planted interaction rank in NID table:", pair_rank)"""
 md(
     """## 9. Take home: run this on real data
 
-The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb) is the **software tutorial** (convert PLINK, Annovar gene topology, Manhattan). This hour skipped convert because current Colab will not cleanly install TensorFlow 2.11, and added a pathway layer, a lasso baseline, and NID.
+The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb) walks through real genotype files: convert PLINK, build a gene topology, and plot a Manhattan. This session uses a simulated cohort so you can train, compare with a lasso, and look at interaction candidates in one hour.
 
 ### When GenNet is the right tool
 
@@ -635,7 +631,7 @@ The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/Gen
 - For highly polygenic or non-coding traits, evaluate variant coverage and the chosen regulatory mapping. This toy does not establish performance in that setting.
 - For statistical inference, use a validated testing procedure. Weight-path importance and this NID score do not supply p-values.
 
-### Checklist on a cluster or laptop (conda `env_GenNet`, Python 3.10, TF 2.11)
+### Checklist on your own computer
 
 1. Clone https://github.com/ArnovanHilten/GenNet and `pip install -r requirements_GenNet.txt`.
 2. PLINK or VCF → `python GenNet.py convert -g ./plink/ -study_name mystudy -step all`.
@@ -655,20 +651,20 @@ Useful knobs: `-L1`, `-L1_act`, `-problem_type regression`, `-filters`, `-onehot
 
 Bundled toys: `examples/example_classification/` (SNP→gene), `example_regression/` (adds a pathway), `examples/A_to_Z/` (PLINK + Annovar).
 
-**ALIEN** ([roshchupkin.org/alien](https://www.roshchupkin.org/alien/)) is the research map around this code — other topologies, multi-omics, brain regulatory context — not a second pip package. Attribution is a hypothesis. Replication still exists. It is not a diagnosis.
+A high gene rank or a high interaction score is a hypothesis to check further. It is not a diagnosis.
 """
 )
 
 md(
-    """## 10. Optional ALIEN experiments
+    """## 10. Optional extra experiments
 
-The live exercise ends above. For a longer practical, change one factor at a time:
+The live exercise ends above. If you have time, change one factor at a time:
 
 1. **Topology:** run the optional cell below. It shuffles SNP-to-gene assignments while preserving the number of allowed edges. Compare validation/test AUC; one realization does not establish that biology always helps.
 2. **Initialization:** repeat `reset_and_train(bundle, seed=...)` with several model seeds and compare gene ranks. Preserve every run, including failures. A fixed seed makes a workshop repeatable; multiple seeds assess robustness.
 3. **Sparsity:** vary `l1` using validation results and inspect prediction versus gene ranking. Keep test data out of configuration selection.
 
-These are known-truth benchmark exercises for ALIEN, not new WMH findings. This example does not test LD, ancestry transfer, covariates, multiomics or federation.
+These exercises use the known simulation. They are a way to see how topology, starting values, and sparsity change the result.
 """
 )
 

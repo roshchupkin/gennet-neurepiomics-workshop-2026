@@ -10,3 +10,4 @@ data/generated/
 .DS_Store
 .idea/
 .vscode/
+*.pptx
