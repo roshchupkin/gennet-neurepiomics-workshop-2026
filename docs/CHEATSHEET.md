@@ -20,7 +20,7 @@ Planted (instructor): APOE additive + APOE_s0×APOE_s1 + weaker COL4A1. Simulate
 
 Training restarts from model seed 7. Rerun downstream cells after retraining. Gene importance is a weight-based score, not an effect size.
 
-After the hour: notebook **section 9** is the path to real PLINK/VCF (clone GenNet, convert, topology, train, interpret).
+After the hour: the notebook's **take-home** section is the path to real PLINK/VCF (clone GenNet, convert, topology, train, interpret). The **ADDITIONAL** block (shuffled topology, other seeds, other penalties) is optional.
 
 ## Full GenNet CLI
 

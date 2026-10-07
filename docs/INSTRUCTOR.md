@@ -71,7 +71,9 @@ Three sentences:
 2. ALIEN is the longer programme (multi-omics, cohorts, configuration) — not a second package they install today.
 3. Questions.
 
-Homework if they ask: notebook **section 9** (real CLI checklist), the A-to-Z Colab, and the Communications Biology paper.
+The notebook repeats one sequence: Concept, Think before running, code, Interpretation. Core blocks are topology, prediction, gene ranking, and the additive-only control. Before the NID table, ask: if two SNPs are strongly additive and do not interact, can they still score highly? After the control, ask which result is prediction, which is a candidate pair, and which examines fitted non-additivity.
+
+Homework if they ask: the take-home section (real CLI checklist), the A-to-Z Colab, and the Communications Biology paper. The ADDITIONAL block is after the hour.
 
 Recorded dry-run (TensorFlow 2.20, data/model seeds 7): test AUC **0.790**, gene ranks **APOE then COL4A1**, candidate pair rank 1. See [`EXPECTED.md`](EXPECTED.md). Download the [completed backup](../notebooks/01_gennet_in_one_hour_completed.ipynb) before class.
 

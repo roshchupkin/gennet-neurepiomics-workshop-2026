@@ -67,30 +67,40 @@ md(
 )
 
 md(
-    f"""# GenNet: from genotype to named biology
+    f"""# GenNet — which genes did the predictor use?
 
-**Neurepiomics 2026** · Genetic and Multiomic Analyses · teaching notebook
+**Neurepiomics 2026** · Genetic and Multiomic Analyses
 
-Neuroepidemiology already **ranks people** well (GWAS, PRS-CS, LDpred). Naming **which annotated genes and pathways** a predictor used — including **SNP–SNP interaction** a linear score will miss — is a different job. That is what [GenNet](https://github.com/ArnovanHilten/GenNet) is for.
+## The question of this practical
+
+> Can a genetic predictor identify which genes matter — and what evidence supports an interaction?
+
+Ranking people is a different job from naming the genes a predictor used. [GenNet](https://github.com/ArnovanHilten/GenNet) only trains connections you allow: variant to gene, then gene to pathway. This hour asks whether you can read those connections, and what would count as evidence for an interaction.
 
 ![GenNet architecture]({FIG}/paper_fig1.png)
 
-*Fig. 1 from van Hilten et al., Communications Biology 2021 (CC BY 4.0). SNPs connect only to their genes; genes connect only to pathways. You draw those wires; the net may only use them.*
+*Fig. 1 from van Hilten et al., Communications Biology 2021 (CC BY 4.0). Variants connect only to their genes. Genes connect only to pathways.*
 
-**During the session:** `File → Save a copy in Drive` → set the runtime to **CPU** → `Runtime → Run all`. A GPU is not needed. Training takes about a minute. Read the text while it runs.
+## How to work through the notebook
 
-**After the session:** section 9 shows how to run the same steps on your own PLINK or VCF files. This notebook uses a small simulated cohort so the practical fits in one hour.
+Each core block uses the same sequence: **Concept**, then **Think before running**, then the **code**, then **Interpretation**.
 
-The phenotype is simulated. Gene names (APOE, COL4A1, and the others) are there so the example is easy to follow.
+**CORE:** topology → prediction → gene ranking → additive-only control.
+
+**ADDITIONAL:** shuffle the topology, change the regularization, or repeat a few model seeds. Those cells are marked. They can wait until after the hour.
+
+**During the session:** `File → Save a copy in Drive` → runtime **CPU** → `Runtime → Run all`. Training takes about a minute. Read the Think cells while it runs.
+
+**After the session:** the take-home section shows the same steps on your own PLINK or VCF files.
 
 Links: [slides](https://github.com/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/docs/GenNet_intro.pdf) · [paper](https://www.nature.com/articles/s42003-021-02622-z) · [GenNet code](https://github.com/ArnovanHilten/GenNet) · [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
 """
 )
 
 md(
-    """## 0. Imports
+    """## Setup
 
-Colab already includes the libraries this notebook needs. Run the next cell.
+Colab already includes the libraries this notebook needs. Run the next cell once.
 """
 )
 
@@ -118,47 +128,44 @@ print("tensorflow", tf.__version__, "scikit-learn", sklearn.__version__)"""
 )
 
 md(
-    f"""## 1. What GenNet is configuring
+    f"""## CORE 1 — Topology
 
-A fully connected net would let every SNP talk to every hidden unit. With a million variants that is tens of billions of weights — and none of them have a gene name. GenNet restricts edges to the chosen biological prior. You supply a **topology**: each row is one allowed path (usually Annovar SNP→gene, then KEGG or GTEx gene→pathway).
+### Concept
 
-The CLI wants three files. That is the whole input.
+A fully connected net would let every variant talk to every hidden unit. At genome scale that is an enormous number of weights, and none of them have a gene name. GenNet restricts edges to a prior you choose. Each row of the topology is one allowed path: variant → gene → pathway.
+
+Three tables are the whole input. Today they stay in memory.
 
 ![Three files]({FIG}/wiki_overview.png)
 
 | File | Role |
 |------|------|
-| `genotype.h5` | people × SNPs (0/1/2) |
+| `genotype.h5` | people × variants (0/1/2) |
 | `subjects.csv` | id, label, genotype row, train/val/test (`set` = 1/2/3) |
 | `topology.csv` | allowed connections |
 
-Today we keep the matrices in memory and print the same tables you would write on disk.
+### Think before running
+
+If every variant were allowed to connect to every gene, what would a large weight tell you about biology?
 """
 )
 
 md(
-    """## 2. Who is in this simulated cohort, and why
+    """### The simulated cohort
 
-The people below are invented. The cohort is small enough to train in about a minute, and the signals in the label are known, so you can check whether the network finds them. That is the same idea as Figure 2a in the GenNet paper: put a cause in, then see whether the weights light up.
+The next cell builds the people you will train on. The last printout is the shape of the whole practical: **1,600 people × 192 variants → 24 genes → 4 pathways → 1 prediction**.
 
-**The people.** 1,600 unrelated participants. Picture a miniature of the older-adult studies in CHARGE (Cohorts for Heart and Aging Research in Genomic Epidemiology), where brain MRI is used to study aging and small-vessel disease. The table has no age, sex, ancestry, or family links. Each person is an independent draw.
+| Item | Value |
+|------|--------|
+| Participants | 1,600 unrelated people. A miniature of an older-adult CHARGE-style sample. No age, sex, ancestry, or family links. |
+| Variants | 192 dosages (24 genes × 8 SNPs), coded 0, 1, or 2. Allele frequencies about 8–42%. |
+| Pathways | Four teaching groups: lipid (`APOE`, `ABCA7`, `CLU`, `SORL1`), immune (`TREM2`, `CD33`, `CR1`, `MS4A6A`), vascular matrix (`COL4A1`, `NOTCH3`, `FOXF2`, `HTRA1`), and housekeeping decoys. |
+| Outcome | Simulated high vs low white-matter hyperintensity (WMH) burden. WMH are bright regions on T2-weighted brain MRI, an endophenotype of cerebral small-vessel disease. |
+| Split | 1,120 train / 240 validation / 240 test |
+| Planted effects | Additive `APOE` (two SNPs), a product of those two SNPs, and a weaker additive `COL4A1`. Every other gene is noise. |
+| Assumptions | Variants are independent, so there is no linkage disequilibrium. A large weight refers to that variant. |
 
-**The genotypes.** 24 genes, 8 variants in each gene, 192 variants in all. A genotype is a dosage: 0, 1, or 2 copies of the coded allele, drawn from Hardy–Weinberg proportions. Allele frequencies are common, about 8–42%. Variants are drawn independently of each other. In a real genome, nearby variants travel together (linkage disequilibrium), and a highlighted SNP can stand in for its neighbor. Independence keeps this hour readable: a large weight refers to that variant.
-
-**Why these gene names.** They are names this audience already meets in Alzheimer disease and cerebral small-vessel disease. The four groups are teaching pathways, written by hand for the exercise:
-
-- `lipid_endocytosis`: APOE, ABCA7, CLU, SORL1. Cholesterol handling and amyloid-related genes.
-- `immune`: TREM2, CD33, CR1, MS4A6A. Microglial and immune genes linked to Alzheimer disease.
-- `vascular_matrix`: COL4A1, NOTCH3, FOXF2, HTRA1. Basement-membrane and small-vessel genes. COL4A1 and NOTCH3 are classic monogenic small-vessel genes; the others are common-variant neighbors of that biology.
-- `background`: GAPDH, ACTB, and other housekeeping names. These are decoys. The label does not use them, so a useful ranking leaves them at the bottom.
-
-APOE is labelled chromosome 19 and COL4A1 chromosome 13, which is where those genes sit. The other chromosome numbers exist so the later Manhattan plot has an x-axis. Positions are not base pairs.
-
-**The outcome.** Each person is labelled high or low **white-matter hyperintensity (WMH) burden**. WMH are bright regions on T2-weighted brain MRI. Epidemiologists use them as an endophenotype of cerebral small-vessel disease: closer to the tissue change than a stroke diagnosis, and widely measured in CHARGE. The label is a coin flip whose odds depend on a few of these genotypes. Carrying the risk dosages makes a high-WMH label more likely. It does not make it certain.
-
-A few signals were written into that label. The other genes are noise. Look at your own rankings before you read which signals those were (section 8). The recipe is also in the comments of the next cell.
-
-Real WMH studies add linkage disequilibrium, covariates, relatedness, and a much more polygenic architecture. This cohort leaves those out so the method itself stays visible.
+The gene names are ones this audience already meets in Alzheimer disease and small-vessel disease. The pathway groups were written by hand for the exercise. `APOE` is labelled chromosome 19 and `COL4A1` chromosome 13, where those genes sit. The label is a coin flip: risk dosages raise the chance of a high-WMH label.
 """
 )
 
@@ -297,6 +304,10 @@ def split(bundle):
 bundle = simulate_cohort()
 print(f"people={bundle['X'].shape[0]}  SNPs={bundle['X'].shape[1]}  prevalence={bundle['y'].mean():.2f}")
 print("split counts", {k: int((bundle['sets'] == k).sum()) for k in (1, 2, 3)})
+print(
+    f"flow: {bundle['X'].shape[0]} people × {bundle['X'].shape[1]} variants"
+    f" → {len(bundle['gene_names'])} genes → {len(bundle['pathway_names'])} pathways → 1 prediction"
+)
 # Genes per pathway. Each gene should own exactly N_SNPS_PER_GENE rows.
 bundle["topology"].groupby(["layer2_name", "layer1_name"]).size().head(12)"""
 )
@@ -345,7 +356,16 @@ print(f"sparsity: {sparse}/{dense} = {sparse/dense:.1%} of a dense net")"""
 )
 
 md(
-    f"""## 3. How the layer uses the mask
+    """### Interpretation
+
+1. How many variant-to-gene connections does the mask allow, compared with a dense map?
+2. In the topology table, can an APOE variant reach COL4A1?
+3. The flow line is the shape of this practical. Which of those numbers did you choose, and which follow from the topology?
+"""
+)
+
+md(
+    f"""### Concept — the layer that enforces the mask
 
 Each allowed connection has a weight. Connections that are not in the topology stay at zero.
 
@@ -363,17 +383,27 @@ A 1 in \\(M\\) is an allowed biological edge. **L1 on \\(W\\)** encourages small
 
 code(
     shared_code("model.py", "DirectedLayer", "build_gennet")
-    + '\n\nmodel = build_gennet(bundle, seed=MODEL_SEED)\nmodel.summary()'
+    + """
+
+model = build_gennet(bundle, seed=MODEL_SEED)
+model.summary()
+print(
+    f"network: {bundle['X'].shape[1]} variants → {len(bundle['gene_names'])} genes"
+    f" → {len(bundle['pathway_names'])} pathways → 1 prediction"
+)
+"""
 )
 
 md(
-    """## 4. Train (CPU, about 30–60 seconds)
+    """## CORE 2 — Prediction
 
-Early stopping watches validation AUC. This cell **rebuilds** the model using `MODEL_SEED` before every fit. The data seed and model seed are separate. Run all downstream cells after retraining so tables reflect the new model.
+### Concept
 
-If this cell is slow, wait; GPU is not needed. Different TensorFlow versions may still produce slightly different results.
+Training uses the training people and watches validation AUC. The cell rebuilds the model from `MODEL_SEED` before every fit, so a second run starts over. The test set is scored only after fitting. The following cell fits an L1 logistic regression on the same variants, with no gene or pathway layer during learning.
 
-On a highly heritable, low-polygenicity trait the paper's simulations (Fig. 2b–c) show AUC rising with sample size. We are in that regime on purpose: 1,600 people and a planted gene. Real WMH in CHARGE will not look this clean.
+### Think before running
+
+The label was built from a few annotated genes. Should both GenNet and the logistic model beat chance on the test set? What would a gap between them mean, and what would a tie mean?
 """
 )
 
@@ -414,13 +444,11 @@ plt.show()"""
 )
 
 md(
-    """## 5. Prediction: GenNet vs L1 logistic regression
+    """### Concept — the logistic comparison
 
-L1 logistic regression learns additive SNP effects without using the gene/pathway mask during training. Its coefficients can still be annotated and summarized by gene afterwards. GenNet uses that biological structure **during learning**, with nonlinear hidden layers.
+L1 logistic regression learns additive variant effects. It does not use the gene or pathway mask while it fits. You can still label its coefficients by gene afterwards. GenNet uses that structure during learning.
 
-In van Hilten et al. 2021 (Sweden schizophrenia exome), GenNet test AUC was **0.74** vs lasso **0.65**. That is a real, modest gain — not "deep learning beat GWAS." The paper used **exome only**, so it was not a bake-off against a genome-wide PRS.
-
-Both methods should beat chance. This is a teaching comparison with a fixed logistic penalty, not a tuned benchmark or evidence that one method generally wins.
+In van Hilten et al. 2021, on a schizophrenia exome, GenNet test AUC was 0.74 and lasso was 0.65. That was a modest gain on exome data. This notebook is a smaller teaching comparison with a fixed penalty.
 """
 )
 
@@ -441,13 +469,28 @@ display(coef.head(10))"""
 )
 
 md(
-    f"""## 6. Explainability: weight paths to genes and pathways
+    """### Interpretation
 
-GenNet importance is the product of weights along each allowed path:
+1. Which number is the prediction result you would quote: train AUC, validation AUC, or test AUC?
+2. The logistic model never saw the pathway table while it fit. Did its largest coefficients still land on variants inside the planted genes?
+3. A similar test AUC means both models can rank people. It does not yet say which genes the network used. That is the next block.
+"""
+)
+
+md(
+    f"""## CORE 3 — Gene ranking
+
+### Concept
+
+GenNet importance is the product of absolute weights along each allowed path:
 
 `mean |SNP→gene| × |gene→pathway| × |pathway→output|`
 
-This is a **weight-based importance score**, not an effect size or a p-value. It omits activation derivatives and depends on the model parameterization. Gene importance averages SNP path scores; the pathway table below is a downstream-weight summary that omits SNP-to-gene weights. The same idea is `python GenNet.py interpret -type get_weight_scores`. Eye and hair colour in the paper recovered *HERC2* / *OCA2* (sanity check). Schizophrenia looks polygenic — many genes light up.
+This is a weight-based score, not an effect size and not a p-value. The same idea is `python GenNet.py interpret -type get_weight_scores`. In the paper, eye and hair colour recovered *HERC2* / *OCA2*. Schizophrenia lit up many genes.
+
+### Think before running
+
+A gene can rank highly because the label depends on it, or because one strong variant pulled the weights up. Besides the bar height, what will you check before you treat a gene as a biological finding?
 
 ![Schizophrenia gene Manhattan]({FIG}/paper_fig2d.png)
 
@@ -492,9 +535,9 @@ display(pd.DataFrame(pw_rows).sort_values("importance", ascending=False))"""
 )
 
 md(
-    f"""### Manhattan of SNP relative importance
+    f"""### Concept — a Manhattan plot of the same scores
 
-The A-to-Z Colab ends with `python GenNet.py plot -type manhattan_relative_importance`. CHARGE rooms already read Manhattan plots — this is that picture, from the **net** instead of from a GWAS p-value.
+The A-to-Z Colab ends with `python GenNet.py plot -type manhattan_relative_importance`. This is that picture, drawn from the network weights. The y-axis is relative importance, not a p-value.
 
 On real data the CLI can also draw a **sunburst** of KEGG pathways (Fig. 3 in the paper). Read it from the centre. For schizophrenia the large slice was viral infectious-disease pathways — a **hypothesis**, not a diagnosis.
 
@@ -538,7 +581,18 @@ plt.show()"""
 )
 
 md(
-    """## 7. Interaction candidates: a readable NID
+    """### Interpretation
+
+1. Which genes are at the top? Do they sit in the pathway the outcome name would suggest?
+2. How is this Manhattan plot different from a GWAS Manhattan plot?
+3. A high bar is a starting point for a biological question. The next block asks what extra evidence an interaction would require.
+"""
+)
+
+md(
+    """## CORE 4 — Interaction candidates and the additive control
+
+### Concept
 
 An additive predictor cannot represent the explicit SNP-product term we plant on the **logit scale**. A nonlinear gene node can learn non-additivity. Strong main effects, however, can also give a SNP pair a high weight-based score.
 
@@ -548,7 +602,13 @@ An additive predictor cannot represent the explicit SNP-product term we plant on
 
 **This simplified score ranks candidates; it does not prove epistasis or supply a significance test.** It ignores activation behavior and can be positive even for an additive-logit network. Our toy searches within genes only; cross-gene interactions are outside this table.
 
-The A-to-Z Colab never runs this. Full CLI: `python GenNet.py interpret -type NID`. **DFIM** (perturb SNP A, watch SNP B's importance) and **PathExplain** (Expected Hessian) are the slower cousins — cluster jobs, not this room.
+The full command on your own computer is `python GenNet.py interpret -type NID`.
+
+### Think before running
+
+If two SNPs have strong additive effects but no interaction, could they still receive a high NID score?
+
+Write down your answer before you run the next cell. The cell after the table fits the control that checks it: the same people and the same genotypes, with the interaction coefficient set to zero.
 """
 )
 
@@ -581,9 +641,9 @@ print("Planted pair (look after you have stared at the table):", bundle["interac
 )
 
 md(
-    """### Check non-additivity on the logit scale
+    """### Concept — the additive-only control
 
-A high NID score is a reason to inspect a pair. Fit an **additive-only control** with the same genotypes, split and model seed, but with the simulated interaction coefficient set to zero.
+You have now seen the NID table. Fit an **additive-only control** with the same genotypes, the same split, and the same model seed, but with the simulated interaction coefficient set to zero.
 
 For each fitted model, vary the candidate dosages over 0/1/2 while holding the other SNPs at 32 fixed test-participant backgrounds. Average the model **logit** over those backgrounds. Adjacent mixed differences quantify departure from additivity on this chosen scale:
 
@@ -642,9 +702,16 @@ print("Inspect the fitted control before interpreting the main model's non-addit
 )
 
 md(
-    """## 8. What you should have recovered
+    """### Interpretation
 
-Compare your tables with the three signals built into the simulation:
+1. Which result demonstrates **prediction**?
+2. Which result suggests a **candidate pair**?
+3. Which result examines **fitted non-additivity**?
+4. If the additive-only control also ranks that pair highly, what can you no longer claim from the NID table alone?
+
+### What was built into the label
+
+Compare those answers with the three signals in the simulation:
 
 1. Strong additive **APOE** (`APOE_s0`, `APOE_s1`).
 2. A **multiplicative interaction** of those two SNPs (NID target).
@@ -671,7 +738,7 @@ print("Planted interaction rank in NID table:", pair_rank)"""
 )
 
 md(
-    """## 9. Take home: run this on real data
+    """## Take home: run this on your own data
 
 The [A-to-Z notebook](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb) walks through real genotype files: convert PLINK, build a gene topology, and plot a Manhattan. This session uses a simulated cohort so you can train, compare with a lasso, and look at interaction candidates in one hour.
 
@@ -712,9 +779,9 @@ A high gene rank or a high interaction score is a hypothesis to check further. I
 )
 
 md(
-    """## 10. Optional extra experiments
+    """## ADDITIONAL — challenge the explanation
 
-The live exercise ends above. If you have time, change one factor at a time:
+The core practical ends above. Skip this block during the hour. If you have time afterwards, change one factor at a time:
 
 1. **Topology:** run the optional cell below. It shuffles SNP-to-gene assignments while preserving the number of allowed edges. Compare validation/test AUC; one realization does not establish that biology always helps.
 2. **Initialization:** repeat `reset_and_train(bundle, seed=...)` with several model seeds and compare gene ranks. Preserve every run, including failures. A fixed seed makes a workshop repeatable; multiple seeds assess robustness.
@@ -725,7 +792,8 @@ These exercises use the known simulation. They are a way to see how topology, st
 )
 
 code(
-    """RUN_TOPOLOGY_EXPERIMENT = False  # Optional: change to True and run this cell.
+    """# ADDITIONAL — shuffled topology. Leave this False during the hour.
+RUN_TOPOLOGY_EXPERIMENT = False
 if RUN_TOPOLOGY_EXPERIMENT:
     shuffled_bundle = dict(bundle)
     # Reassign which SNP may talk to which gene. The number of allowed edges stays the same.

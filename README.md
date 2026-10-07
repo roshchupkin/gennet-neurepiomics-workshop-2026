@@ -1,6 +1,14 @@
 # GenNet workshop — Neurepiomics 2026
 
+![GenNet: from genetic variation to biological hypotheses](poster.png)
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb)
+
+> Can a genetic predictor identify which genes matter — and what evidence supports an interaction?
+
+**CORE:** topology → prediction → gene ranking → additive-only control.
+
+**ADDITIONAL:** shuffle the topology, change the regularization, or repeat a few model seeds.
 
 One-hour practical for **Neurepiomics 2026** (San Antonio, 5–7 October), in Wednesday’s session:
 
@@ -32,7 +40,7 @@ The notebook uses a simulated cohort of 1,600 people and 192 variants. A few sig
 
 ## After the workshop
 
-- Notebook section 9: the same steps on your own genotype files.
+- The take-home section of the notebook: the same steps on your own genotype files.
 - Cheat sheet: [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)
 - Paper: [van Hilten et al., Communications Biology 2021](https://www.nature.com/articles/s42003-021-02622-z)
 - GenNet code and the longer tutorial: [ArnovanHilten/GenNet](https://github.com/ArnovanHilten/GenNet) · [A-to-Z Colab](https://colab.research.google.com/github/ArnovanHilten/GenNet/blob/master/examples/A_to_Z/GenNet_A_to_Z.ipynb)
