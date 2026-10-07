@@ -22,7 +22,7 @@ CELLS = []
 
 def shared_code(filename: str, *names: str) -> str:
     """Embed checked-in helpers so the Colab stays self-contained and in sync."""
-    source = (NB_PATH.parents[1] / "src" / "gennet_workshop" / filename).read_text()
+    source = (NB_PATH.parents[1] / "src" / "gennet_workshop" / filename).read_text(encoding="utf-8")
     tree = ast.parse(source)
     snippets = []
     for name in names:
@@ -763,5 +763,5 @@ for i, cell in enumerate(nb["cells"]):
         cell["source"][-1] = cell["source"][-1][:-1] if cell["source"][-1] != "\n" else cell["source"][-1]
 
 NB_PATH.parent.mkdir(parents=True, exist_ok=True)
-NB_PATH.write_text(json.dumps(nb, indent=1) + "\n")
+NB_PATH.write_text(json.dumps(nb, indent=1) + "\n", encoding="utf-8")
 print(f"wrote {NB_PATH} ({len(CELLS)} cells)")
