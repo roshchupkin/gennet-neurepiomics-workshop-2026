@@ -124,6 +124,7 @@ def nid_pairwise(model, cohort: SimulatedCohort, top_n: int = 8) -> pd.DataFrame
     for g, gene in enumerate(cohort.gene_names):
         snps = np.where(cohort.snp_to_gene == g)[0]
         p = int(cohort.gene_to_pathway[g])
+        # Downstream weight shared by every pair inside this gene.
         later = float(np.abs(w_gp[g, p]) * np.abs(w_out[p]))
         mags = np.abs(w_sg[snps, g])
         order = np.argsort(-mags)[: min(top_n, len(snps))]

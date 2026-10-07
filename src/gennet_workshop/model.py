@@ -63,6 +63,7 @@ class DirectedLayer(tf.keras.layers.Layer):
         super().build(input_shape)
 
     def call(self, inputs):
+        # Zero the edges the topology forbids, then shrink the edges that remain.
         directed_kernel = self.kernel * self.mask
         self.add_loss(self.l1 * tf.reduce_sum(tf.abs(directed_kernel)))
         return self.activation(tf.matmul(inputs, directed_kernel) + self.bias)
@@ -91,7 +92,7 @@ def build_gennet(
     n_snps = cohort.n_snps
     inputs = tf.keras.Input(shape=(n_snps,), name="genotype")
     X_train = cohort.split()[0]
-    # Fit preprocessing on training participants only. Keep raw dosages at the API.
+    # Scale each SNP using the training people only. Validation and test stay out of that mean and variance.
     normalized = tf.keras.layers.Normalization(
         mean=X_train.mean(axis=0),
         variance=X_train.var(axis=0),

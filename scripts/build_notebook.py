@@ -96,6 +96,7 @@ Colab already includes the libraries this notebook needs. Run the next cell.
 
 code(
     """import os
+# Keep this practical on CPU. A GPU is not required for 1,600 people.
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 from typing import Tuple, Dict
@@ -110,6 +111,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 tf.get_logger().setLevel("ERROR")
+# Same operations in the same order, so a rerun is comparable. Results can
+# still shift slightly between TensorFlow versions.
 tf.config.experimental.enable_op_determinism()
 print("tensorflow", tf.__version__, "scikit-learn", sklearn.__version__)"""
 )
@@ -134,23 +137,35 @@ Today we keep the matrices in memory and print the same tables you would write o
 )
 
 md(
-    """## 2. Simulate a tiny SVD-flavored cohort
+    """## 2. Who is in this simulated cohort, and why
 
-**Live hour.** 1,600 people, 24 genes × 8 SNPs = 192 variants. Independent genotypes (no LD), Hardy–Weinberg draws.
+The people below are invented. The cohort is small enough to train in about a minute, and the signals in the label are known, so you can check whether the network finds them. That is the same idea as Figure 2a in the GenNet paper: put a cause in, then see whether the weights light up.
 
-Pathways (teaching names, not a real annotation):
+**The people.** 1,600 unrelated participants. Picture a miniature of the older-adult studies in CHARGE (Cohorts for Heart and Aging Research in Genomic Epidemiology), where brain MRI is used to study aging and small-vessel disease. The table has no age, sex, ancestry, or family links. Each person is an independent draw.
 
-- `lipid_endocytosis`: APOE, ABCA7, CLU, SORL1
-- `immune`: TREM2, CD33, CR1, MS4A6A
-- `vascular_matrix`: COL4A1, NOTCH3, FOXF2, HTRA1
-- `background`: housekeeping decoys
+**The genotypes.** 24 genes, 8 variants in each gene, 192 variants in all. A genotype is a dosage: 0, 1, or 2 copies of the coded allele, drawn from Hardy–Weinberg proportions. Allele frequencies are common, about 8–42%. Variants are drawn independently of each other. In a real genome, nearby variants travel together (linkage disequilibrium), and a highlighted SNP can stand in for its neighbor. Independence keeps this hour readable: a large weight refers to that variant.
 
-**The label is simulated.** Do not treat the later gene ranking as a WMH discovery. We plant known biology so you can see whether the net recovers it — the same logic as Fig. 2a in the paper.
+**Why these gene names.** They are names this audience already meets in Alzheimer disease and cerebral small-vessel disease. The four groups are teaching pathways, written by hand for the exercise:
+
+- `lipid_endocytosis`: APOE, ABCA7, CLU, SORL1. Cholesterol handling and amyloid-related genes.
+- `immune`: TREM2, CD33, CR1, MS4A6A. Microglial and immune genes linked to Alzheimer disease.
+- `vascular_matrix`: COL4A1, NOTCH3, FOXF2, HTRA1. Basement-membrane and small-vessel genes. COL4A1 and NOTCH3 are classic monogenic small-vessel genes; the others are common-variant neighbors of that biology.
+- `background`: GAPDH, ACTB, and other housekeeping names. These are decoys. The label does not use them, so a useful ranking leaves them at the bottom.
+
+APOE is labelled chromosome 19 and COL4A1 chromosome 13, which is where those genes sit. The other chromosome numbers exist so the later Manhattan plot has an x-axis. Positions are not base pairs.
+
+**The outcome.** Each person is labelled high or low **white-matter hyperintensity (WMH) burden**. WMH are bright regions on T2-weighted brain MRI. Epidemiologists use them as an endophenotype of cerebral small-vessel disease: closer to the tissue change than a stroke diagnosis, and widely measured in CHARGE. The label is a coin flip whose odds depend on a few of these genotypes. Carrying the risk dosages makes a high-WMH label more likely. It does not make it certain.
+
+A few signals were written into that label. The other genes are noise. Look at your own rankings before you read which signals those were (section 8). The recipe is also in the comments of the next cell.
+
+Real WMH studies add linkage disequilibrium, covariates, relatedness, and a much more polygenic architecture. This cohort leaves those out so the method itself stays visible.
 """
 )
 
 code(
-    """PATHWAYS = {
+    """# 24 genes students in this room already know, grouped into four teaching pathways.
+# The background genes are decoys: the label does not depend on them.
+PATHWAYS = {
     "lipid_endocytosis": ("APOE", "ABCA7", "CLU", "SORL1"),
     "immune": ("TREM2", "CD33", "CR1", "MS4A6A"),
     "vascular_matrix": ("COL4A1", "NOTCH3", "FOXF2", "HTRA1"),
@@ -159,13 +174,14 @@ code(
         "PPIA", "HPRT1", "YWHAZ", "UBC", "RPS18", "EEF1A1",
     ),
 }
-N_SNPS_PER_GENE = 8
-N_SAMPLES = 1600
-SEED = 7
-MODEL_SEED = 7
+N_SNPS_PER_GENE = 8    # eight dosages inside each gene
+N_SAMPLES = 1600       # unrelated people; small enough for a one-hour CPU run
+SEED = 7               # redraws the same genotypes and the same labels
+MODEL_SEED = 7         # redraws the same network initialization, separately from the data
 
 
 def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=SEED, interaction_strength=1.15):
+    \"\"\"Draw genotypes and a binary high-WMH label for one teaching cohort.\"\"\"
     if not isinstance(n_snps_per_gene, (int, np.integer)) or n_snps_per_gene < 2:
         raise ValueError("n_snps_per_gene must be an integer >= 2")
     if not isinstance(n_samples, (int, np.integer)) or n_samples < 20:
@@ -182,6 +198,8 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
     n_genes, n_pathways = len(gene_names), len(pathway_names)
     n_snps = n_genes * n_snps_per_gene
 
+    # Common allele frequencies. Each SNP is its own draw, so there is no
+    # linkage disequilibrium. Dosages follow Hardy-Weinberg: P(0), P(1), P(2).
     maf = rng.uniform(0.08, 0.42, size=n_snps)
     p = maf
     X = np.empty((n_samples, n_snps), dtype=np.float32)
@@ -189,6 +207,9 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
         pr = [(1 - p[j]) ** 2, 2 * p[j] * (1 - p[j]), p[j] ** 2]
         X[:, j] = rng.choice([0.0, 1.0, 2.0], size=n_samples, p=pr)
 
+    # One allowed path per SNP: that SNP, its gene, its pathway.
+    # APOE is chromosome 19 and COL4A1 is chromosome 13, as in the genome.
+    # Every other chromosome number is a placeholder for the Manhattan plot.
     snp_names, snp_to_gene = [], np.empty(n_snps, dtype=np.int32)
     gene_to_pw = np.array([pathway_names.index(gene_to_pathway[g]) for g in gene_names])
     rows = []
@@ -207,6 +228,11 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
             })
     topology = pd.DataFrame(rows)
 
+    # The label uses three signals and ignores every other gene.
+    # APOE_s0 and APOE_s1 are additive main effects, a teaching stand-in for
+    # the idea of APOE e4, not the real e2/e3/e4 haplotype.
+    # Their product is a within-gene interaction.
+    # COL4A1 adds a weaker vascular signal, averaged over its eight SNPs.
     apoe = gene_names.index("APOE")
     col4 = gene_names.index("COL4A1")
     a = apoe * n_snps_per_gene
@@ -214,6 +240,7 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
     col4_idx = np.arange(col4 * n_snps_per_gene, (col4 + 1) * n_snps_per_gene)
 
     def z(v):
+        # Standardize so the coefficients below are on a similar scale.
         return (v - v.mean()) / (v.std() + 1e-6)
 
     logit = (
@@ -222,9 +249,13 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
         + interaction_strength * z(X[:, a]) * z(X[:, b])
         + 0.55 * z(X[:, col4_idx].mean(axis=1))
     )
+    # Center the log-odds, then flip a coin. Risk genotypes raise the chance
+    # of a high-WMH label; they do not determine it.
     logit = logit - logit.mean()
     y = rng.binomial(1, 1 / (1 + np.exp(-logit))).astype(np.float32)
 
+    # 70% train, 15% validation, 15% test. This permutation uses seed+1, so
+    # turning the interaction off later keeps the same people in the same sets.
     order = np.random.default_rng(seed + 1).permutation(n_samples)
     n_train, n_val = int(0.70 * n_samples), int(0.15 * n_samples)
     sets = np.empty(n_samples, dtype=np.int8)
@@ -232,12 +263,14 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
     sets[order[n_train:n_train + n_val]] = 2
     sets[order[n_train + n_val:]] = 3
 
+    # The same three tables the real GenNet CLI expects, held in memory.
     subjects = pd.DataFrame({
         "patient_id": [f"s{i:04d}" for i in range(n_samples)],
         "labels": y.astype(int),
         "genotype_row": np.arange(n_samples),
         "set": sets,
     })
+    # A 1 marks an edge the network is allowed to use.
     snp_gene_mask = np.zeros((n_snps, n_genes), np.float32)
     snp_gene_mask[np.arange(n_snps), snp_to_gene] = 1
     gene_pathway_mask = np.zeros((n_genes, n_pathways), np.float32)
@@ -256,6 +289,7 @@ def simulate_cohort(n_samples=N_SAMPLES, n_snps_per_gene=N_SNPS_PER_GENE, seed=S
 
 
 def split(bundle):
+    \"\"\"Return train, validation, and test genotypes and labels (sets 1, 2, 3).\"\"\"
     s, X, y = bundle["sets"], bundle["X"], bundle["y"]
     return X[s == 1], y[s == 1], X[s == 2], y[s == 2], X[s == 3], y[s == 3]
 
@@ -263,6 +297,7 @@ def split(bundle):
 bundle = simulate_cohort()
 print(f"people={bundle['X'].shape[0]}  SNPs={bundle['X'].shape[1]}  prevalence={bundle['y'].mean():.2f}")
 print("split counts", {k: int((bundle['sets'] == k).sum()) for k in (1, 2, 3)})
+# Genes per pathway. Each gene should own exactly N_SNPS_PER_GENE rows.
 bundle["topology"].groupby(["layer2_name", "layer1_name"]).size().head(12)"""
 )
 
@@ -275,6 +310,8 @@ Each row is one allowed path. APOE SNPs may talk to APOE, then to `lipid_endocyt
 
 code(
     """topo = bundle["topology"]
+# One row is one allowed path. All eight APOE SNPs should land in APOE,
+# and APOE should land in lipid_endocytosis.
 print("APOE rows (SNP → gene → pathway):")
 display(topo[topo.layer1_name == "APOE"][["layer0_name", "layer1_name", "layer2_name"]])
 print("How many SNPs per pathway?")
@@ -293,6 +330,8 @@ A dense SNP-to-gene map has 192×24 = 4,608 connections. The mask permits 192 of
 code(
     """n_snps, n_genes = bundle["snp_gene_mask"].shape
 n_pw = bundle["gene_pathway_mask"].shape[1]
+# Dense counts every SNP-gene and gene-pathway pair. The mask counts only
+# the pairs written into the topology.
 dense = n_snps * n_genes + n_genes * n_pw
 sparse = int(bundle["snp_gene_mask"].sum() + bundle["gene_pathway_mask"].sum())
 fig, ax = plt.subplots(figsize=(5.2, 3.2))
@@ -340,12 +379,14 @@ On a highly heritable, low-polygenicity trait the paper's simulations (Fig. 2b�
 
 code(
     """def reset_and_train(bundle, seed=MODEL_SEED, epochs=40, l1=5e-4):
+    # Build a new network each call. A second run starts over; it does not continue training.
     tf.keras.backend.clear_session()
     model = build_gennet(bundle, l1=l1, seed=seed)
     X_tr, y_tr, X_va, y_va, _, _ = split(bundle)
     history = model.fit(
         X_tr, y_tr, validation_data=(X_va, y_va), epochs=epochs, batch_size=64,
         verbose=0,
+        # Watch validation AUC only. Restore the epoch that did best on validation.
         callbacks=[tf.keras.callbacks.EarlyStopping(
             monitor="val_auc", mode="max", patience=8, restore_best_weights=True
         )],
@@ -353,10 +394,10 @@ code(
     return model, history
 
 
+# Train on set 1, monitor set 2, and touch the test set only when scoring.
 X_tr, y_tr, X_va, y_va, X_te, y_te = split(bundle)
 model, history = reset_and_train(bundle)
 print(f"Trained {len(history.history['auc'])} epochs with model seed {MODEL_SEED}")
-# Early stopping uses validation only; report test AUC after fitting.
 
 def auc(m, X, y):
     return float(roc_auc_score(y, m.predict(X, verbose=0).ravel()))
@@ -385,7 +426,9 @@ Both methods should beat chance. This is a teaching comparison with a fixed logi
 
 code(
     shared_code("interpret.py", "fit_lasso")
-    + """\n\nlasso, lasso_auc, _ = fit_lasso(bundle)
+    + """\n\n# Same SNPs, no gene or pathway layer. A large coefficient means that variant
+# helped a linear model. The gene column is added afterwards, for reading.
+lasso, lasso_auc, _ = fit_lasso(bundle)
 print(f"test AUC   GenNet={gennet_auc['test']:.3f}   L1 logistic={lasso_auc:.3f}")
 
 coef = pd.DataFrame({
@@ -413,7 +456,8 @@ This is a **weight-based importance score**, not an effect size or a p-value. It
 )
 
 code(
-    """w_sg = model.get_layer("gene_layer").get_directed_weights()
+    """# Read the trained weights with forbidden edges already zeroed out.
+w_sg = model.get_layer("gene_layer").get_directed_weights()
 w_gp = model.get_layer("pathway_layer").get_directed_weights()
 w_out = model.get_layer("output").get_weights()[0].reshape(-1)
 
@@ -421,6 +465,8 @@ rows = []
 for g, gene in enumerate(bundle["gene_names"]):
     snps = np.where(bundle["snp_to_gene"] == g)[0]
     p = int(bundle["gene_to_pathway"][g])
+    # Gene score = mean |SNP→gene| × |gene→pathway| × |pathway→outcome|.
+    # Absolute values: a large negative weight is still "used".
     score = float(np.mean(np.abs(w_sg[snps, g])) * abs(w_gp[g, p]) * abs(w_out[p]))
     rows.append({"gene": gene, "pathway": bundle["pathway_names"][p], "importance": score})
 gene_imp = pd.DataFrame(rows).sort_values("importance", ascending=False).reset_index(drop=True)
@@ -434,6 +480,7 @@ ax.set_xlabel("weight-path importance")
 ax.set_title("Which genes did the directed net use?")
 plt.show()
 
+# Pathway score uses the gene→pathway and pathway→outcome weights only.
 pw_rows = []
 for p, pw in enumerate(bundle["pathway_names"]):
     genes = np.where(bundle["gene_to_pathway"] == p)[0]
@@ -456,7 +503,9 @@ On real data the CLI can also draw a **sunburst** of KEGG pathways (Fig. 3 in th
 )
 
 code(
-    """chr_by_snp = bundle["topology"].drop_duplicates("layer0_node").set_index("layer0_node")["chr"]
+    """# Per-SNP version of the same path product, divided by the largest SNP
+# so the y-axis is relative importance. x is SNP order, not a base-pair position.
+chr_by_snp = bundle["topology"].drop_duplicates("layer0_node").set_index("layer0_node")["chr"]
 snp_rows = []
 for s, name in enumerate(bundle["snp_names"]):
     g = int(bundle["snp_to_gene"][s])
@@ -524,7 +573,9 @@ plt.show()
 
 """
     + "\n\n" + shared_code("interpret.py", "_layer", "directed_weights", "nid_pairwise")
-    + """\n\nnid = nid_pairwise(model, bundle)
+    + """\n\n# Pairs that share a gene node. A high score is a candidate to inspect.
+# It can also light up two SNPs that are simply both strong on their own.
+nid = nid_pairwise(model, bundle)
 display(nid.head(12))
 print("Planted pair (look after you have stared at the table):", bundle["interaction"])"""
 )
@@ -546,7 +597,9 @@ Neither this probe nor NID is a biological effect estimate or a significance tes
 
 code(
     shared_code("interpret.py", "mixed_difference", "pair_logit_surface")
-    + """\n\nadditive_bundle = simulate_cohort(interaction_strength=0.0)
+    + """\n\n# Same people, same genotypes, same split. The interaction coefficient is 0,
+# so any NID hit in this control is not coming from a planted product term.
+additive_bundle = simulate_cohort(interaction_strength=0.0)
 assert np.array_equal(bundle["X"], additive_bundle["X"])
 assert np.array_equal(bundle["sets"], additive_bundle["sets"])
 control_model, control_history = reset_and_train(additive_bundle)
@@ -555,6 +608,8 @@ print("Additive-only control: top NID candidates (no interaction was planted)")
 display(control_nid.head(3))
 
 a, b = bundle["interaction_indices"]
+# For dosages 0, 1, 2 of the two APOE SNPs, average the model's logit
+# over 32 test participants. The other SNPs stay at those people's values.
 reference = X_te[:32]
 main_surface = pair_logit_surface(model, reference, (a, b))
 control_surface = pair_logit_surface(control_model, reference, (a, b))
@@ -603,7 +658,8 @@ When the signal sits in annotated genes, this network can recover gene importanc
 )
 
 code(
-    """top5 = set(gene_imp.head(5)["gene"])
+    """# Compare the tables above with the three signals written into the label.
+top5 = set(gene_imp.head(5)["gene"])
 pair = set(bundle["interaction"])
 pair_rank = next(
     (i + 1 for i, (a, b) in enumerate(zip(nid.snp_i, nid.snp_j)) if set([a, b]) == pair),
@@ -672,6 +728,7 @@ code(
     """RUN_TOPOLOGY_EXPERIMENT = False  # Optional: change to True and run this cell.
 if RUN_TOPOLOGY_EXPERIMENT:
     shuffled_bundle = dict(bundle)
+    # Reassign which SNP may talk to which gene. The number of allowed edges stays the same.
     permutation = np.random.default_rng(17).permutation(bundle["X"].shape[1])
     shuffled_bundle["snp_gene_mask"] = bundle["snp_gene_mask"][permutation]
     shuffled_model, _ = reset_and_train(shuffled_bundle)

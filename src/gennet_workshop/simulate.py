@@ -114,6 +114,8 @@ def simulate_cohort(
     n_pathways = len(pathway_names)
     n_snps = n_genes * n_snps_per_gene
 
+    # Common allele frequencies. SNPs are independent (no linkage disequilibrium).
+    # Dosages 0/1/2 follow Hardy–Weinberg proportions.
     maf = rng.uniform(0.08, 0.42, size=n_snps)
     # Hardy–Weinberg genotype probabilities from allele frequency.
     p = maf
@@ -154,7 +156,9 @@ def simulate_cohort(
     b = apoe * n_snps_per_gene + CAUSAL_SNP_B
     col4_idx = np.arange(col4 * n_snps_per_gene, (col4 + 1) * n_snps_per_gene)
 
-    # Standardized dosages so coefficients are on a similar scale.
+    # Two APOE SNPs (additive, a stand-in for the APOE e4 idea, not the real haplotype),
+    # their product (within-gene interaction), and a weaker mean COL4A1 dosage.
+    # Every other gene is noise. Standardized dosages keep the coefficients comparable.
     def z(col: np.ndarray) -> np.ndarray:
         return (col - col.mean()) / (col.std() + 1e-6)
 
