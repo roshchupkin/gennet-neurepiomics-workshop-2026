@@ -1,6 +1,6 @@
 # Figure sources
 
-All images under `docs/figures/` are for the workshop slides. They are **not** a CHARGE analysis.
+All images under `docs/figures/` support the workshop notebook and explain the published method. They are **not** a CHARGE analysis.
 
 | File | Source | License |
 |------|--------|---------|

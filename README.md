@@ -38,9 +38,9 @@ and `python GenNet.py --help` are the path to real data.
 | 20–50 | Practical | Simulate → inspect topology → train → AUC vs lasso → gene ranks → NID candidates → additive-only control. |
 | 50–60 | Wrap | How this maps to CHARGE-scale GenNet, caveats, Q&A. |
 
+The presenter uses their own introductory slides; this repository contains the practical and supporting notes.
+
 Instructor notes: [`docs/INSTRUCTOR.md`](docs/INSTRUCTOR.md)  
-Slide script: [`docs/SLIDES.md`](docs/SLIDES.md)  
-Presenter deck: [`docs/slides.html`](docs/slides.html) (open in a browser; paper figures, offline)  
 Cheat sheet: [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)  
 Vs original A-to-Z Colab: [`docs/VS_A_TO_Z.md`](docs/VS_A_TO_Z.md)
 

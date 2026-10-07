@@ -15,7 +15,7 @@ After 60 minutes a participant should be able to:
 
 ## Before the session
 
-- [ ] Open [`docs/slides.html`](slides.html) full screen; have [`SLIDES.md`](SLIDES.md) as speaker notes.
+- [ ] Open your own introductory presentation and the practical notebook.
 - [ ] Open https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb and **Run all** once on Colab CPU. Keep that tab as the projector backup.
 - [ ] Download the completed backup notebook for connection failures.
 - [ ] Put that Colab link on a slide and in the chat (the README badge is the same URL).
@@ -30,9 +30,9 @@ After 60 minutes a participant should be able to:
 
 If Colab is compiling TensorFlow slowly, start the talk anyway.
 
-### 0:05–0:20 — talk (slides 1–16)
+### 0:05–0:20 — introductory talk
 
-Paper figures first (architecture, planted simulation, schizophrenia Manhattan, KEGG sunburst), then the interpretation stack and **NID**, then ALIEN, then the Colab. Speaker notes: [`SLIDES.md`](SLIDES.md). Figures: [`FIGURES.md`](FIGURES.md).
+Use your own presentation to introduce the biological topology, prediction and interpretation. Before starting the notebook, briefly explain the difference between additive SNP effects, non-additivity and NID candidate ranking. The notebook contains the relevant paper figures; sources: [`FIGURES.md`](FIGURES.md).
 
 **Do say:** compare prediction against suitable baselines. GenNet incorporates biological structure during learning; weights and NID scores are candidates for further investigation.
 
