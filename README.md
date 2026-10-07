@@ -15,7 +15,7 @@ One-hour practical for **Neurepiomics 2026** (San Antonio, 5–7 October), in We
 > **Genetic and Multiomic Analyses** · 11:45–15:00 · Center for Brain Health  
 > Xueqiu Jian, Feiyang Zhao, Aniket Mishra, and Gennady Roshchupkin
 
-GenNet is a neural network whose connections follow biology: variants connect to their genes, and genes connect to pathways. In this hour you train a small example, see how well it predicts, and read which genes and variant pairs it used.
+This practical uses a small teaching implementation of GenNet with masked connections. Variants connect to their genes, and genes connect to pathways. In this hour you train a small example, see how well it predicts, and read which genes and variant pairs it used.
 
 ## How to start
 
@@ -23,7 +23,8 @@ GenNet is a neural network whose connections follow biology: variants connect to
 2. Open the practical with the button above. It loads the notebook in Google Colab. You do not upload a file.
 3. In Colab, choose **File → Save a copy in Drive**.
 4. Choose **Runtime → Change runtime type → CPU**. A GPU is not needed.
-5. Choose **Runtime → Run all**. Training takes about a minute. Read the text in the notebook while it runs.
+5. Run one core section at a time. Read **Think before running**, answer it, then run that section's code and read **Interpretation**.
+6. **Runtime → Run all** is a quick check that the notebook executes, about a minute. Use it when you want the whole run, not during the guided pauses.
 
 If the button does not open, use this link: [Launch the practical in Google Colab](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb).
 

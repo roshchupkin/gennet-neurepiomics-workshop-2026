@@ -26,7 +26,7 @@ After 60 minutes a participant should be able to:
 
 ### 0:00–0:05 — landing
 
-“Open the Colab link (README badge or the URL on the slide). Runtime → Change runtime type → CPU. Run the Imports and Simulate code cells. You should see 1600 people and 192 SNPs.”
+“Open the Colab link (README badge or the URL on the slide). Runtime → Change runtime type → CPU. We will run one section at a time. Read the Think cell, then run the code under it. Run all is only a quick check that the notebook executes.”
 
 If Colab is compiling TensorFlow slowly, start the talk anyway.
 
@@ -38,7 +38,7 @@ Use your own presentation to introduce the biological topology, prediction and i
 
 **Do not say:** “Deep learning outperforms GWAS.” It does not, here.
 
-The notebook is longer than the live hour: theory, paper figures, and a take-home CLI live next to the runnable cells. **Run all** still trains in ~40 s. Tell the room to skim while it runs; do not walk every markdown cell.
+The notebook is longer than the live hour: theory, paper figures, and a take-home CLI live next to the runnable cells. Before class, **Run all** once on CPU (about a minute) as your execution check. In the room, go section by section so students answer **Think before running** before they see the output. Do not walk every markdown cell in the take-home section.
 
 ### 0:20–0:50 — practical
 

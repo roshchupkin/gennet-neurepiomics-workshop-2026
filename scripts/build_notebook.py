@@ -75,7 +75,7 @@ md(
 
 > Can a genetic predictor identify which genes matter — and what evidence supports an interaction?
 
-Ranking people is a different job from naming the genes a predictor used. [GenNet](https://github.com/ArnovanHilten/GenNet) only trains connections you allow: variant to gene, then gene to pathway. This hour asks whether you can read those connections, and what would count as evidence for an interaction.
+Ranking people is a different job from naming the genes a predictor used. This practical uses a small teaching implementation of GenNet with masked connections. [GenNet](https://github.com/ArnovanHilten/GenNet) only trains connections you allow: variant to gene, then gene to pathway. This hour asks whether you can read those connections, and what would count as evidence for an interaction.
 
 ![GenNet architecture]({FIG}/paper_fig1.png)
 
@@ -89,7 +89,9 @@ Each core block uses the same sequence: **Concept**, then **Think before running
 
 **ADDITIONAL:** shuffle the topology, change the regularization, or repeat a few model seeds. Those cells are marked. They can wait until after the hour.
 
-**During the session:** `File → Save a copy in Drive` → runtime **CPU** → `Runtime → Run all`. Training takes about a minute. Read the Think cells while it runs.
+**During the session:** `File → Save a copy in Drive` → runtime **CPU**. Run one core section at a time. Read **Think before running**, answer it, then run that section's code and read **Interpretation**.
+
+**Quick check:** `Runtime → Run all` executes the whole notebook in about a minute. Use it to confirm that the notebook runs. It does not leave time for the Think cells.
 
 **After the session:** the take-home section shows the same steps on your own PLINK or VCF files.
 

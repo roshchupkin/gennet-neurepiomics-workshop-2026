@@ -4,7 +4,7 @@
 
 [Open in Colab](https://colab.research.google.com/github/roshchupkin/gennet-neurepiomics-workshop-2026/blob/main/notebooks/01_gennet_in_one_hour.ipynb)
 
-Open the notebook in Colab, save a copy in Drive, set the runtime to CPU, and run all cells.
+Open the notebook in Colab, save a copy in Drive, and set the runtime to CPU. In the guided hour, run one core section at a time so you can answer **Think before running** before the code. **Run all** is a quick check that the notebook executes.
 
 | Step | What to look at |
 |------|-----------------|
